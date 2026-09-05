@@ -4,136 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Laporan Obat/BMHP Expired — Farmasi RSUD</title>
+  
+  <!-- Link ke style.css eksternal -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Library eksternal -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
-  <style>
-    /* ==========================================================
-       STYLE (sama seperti sebelumnya, disalin di sini)
-       ========================================================== */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
-
-    :root {
-      --green-900: #0B4A2A;
-      --green-700: #1B7A43;
-      --green-600: #22935A;
-      --green-500: #2E9E5B;
-      --green-100: #E3F5EA;
-      --bg: #F5FAF7;
-      --ink: #1B2A22;
-      --muted: #667A70;
-      --white: #FFFFFF;
-      --border: #D8E9DF;
-      --danger: #D32F2F;
-      --warn3: #F57C00;
-      --warn6: #F9A825;
-      --safe: #2E7D32;
-      --radius: 14px;
-      --shadow: 0 2px 10px rgba(11, 74, 42, 0.08);
-    }
-
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Inter', sans-serif; }
-    h1, h2, h3 { font-family: 'Poppins', sans-serif; }
-
-    .app-shell { max-width: 1800px; margin: 0 auto; padding: 20px 32px 48px; }
-    @media (max-width: 900px) { .app-shell { padding: 20px 16px 48px; } }
-
-    .two-col { display: grid; grid-template-columns: 420px minmax(0,1fr); gap: 20px; align-items: start; }
-    @media (max-width: 960px) { .two-col { grid-template-columns: 1fr; } }
-
-    .topbar { display: flex; align-items: center; gap: 12px; padding: 14px 4px 22px; }
-    .header-sticky { position: sticky; top: 0; z-index: 100; background: var(--bg); padding-top: 20px; margin: -20px -32px 0; padding-left: 32px; padding-right: 32px; padding-bottom: 4px; }
-    @media (max-width: 900px) { .header-sticky { margin: -20px -16px 0; padding-left: 16px; padding-right: 16px; } }
-
-    .topbar .cross { width: 38px; height: 38px; border-radius: 10px; background: var(--green-700); position: relative; flex-shrink: 0; }
-    .topbar .cross::before, .topbar .cross::after { content: ''; position: absolute; background: var(--white); border-radius: 2px; }
-    .topbar .cross::before { width: 16px; height: 4px; top: 17px; left: 11px; }
-    .topbar .cross::after { width: 4px; height: 16px; top: 11px; left: 17px; }
-
-    .topbar .titles h1 { font-size: 16px; font-weight: 700; margin: 0; color: var(--green-900); }
-    .topbar .titles p { font-size: 12.5px; color: var(--muted); margin: 2px 0 0; }
-
-    .btn-tutorial { background: #E53935; color: #fff; border: none; font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 700; padding: 9px 16px; border-radius: 999px; cursor: pointer; margin-left: auto; margin-right: 10px; }
-    .btn-tutorial:hover { background: #C62828; }
-
-    .nav-pill { margin-left: auto; display: flex; gap: 6px; background: var(--white); border: 1px solid var(--border); border-radius: 999px; padding: 4px; }
-    .nav-pill a { text-decoration: none; font-size: 12.5px; font-weight: 600; color: var(--muted); padding: 7px 14px; border-radius: 999px; }
-    .nav-pill a.active { background: var(--green-700); color: var(--white); }
-
-    .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--border); padding: 22px; margin-bottom: 18px; }
-    .form-sticky-card { position: sticky; top: 80px; z-index: 10; }
-    @media (max-width: 960px) { .form-sticky-card { position: static; } }
-
-    .card h2 { font-size: 15px; color: var(--green-900); margin: 0 0 4px; }
-    .card .sub { font-size: 12.5px; color: var(--muted); margin: 0 0 18px; }
-
-    label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink); margin: 0 0 6px; }
-    .field { margin-bottom: 16px; position: relative; }
-
-    input[type="text"], input[type="number"], input[type="date"], select {
-      width: 100%; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--border);
-      background: var(--white); font-family: 'Inter', sans-serif; font-size: 14px; color: var(--ink);
-      transition: border-color .15s;
-    }
-    input:focus, select:focus { outline: none; border-color: var(--green-600); }
-    input:disabled { background: var(--green-100); color: var(--green-900); font-weight: 600; }
-
-    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media (max-width: 560px) { .row-2 { grid-template-columns: 1fr; } }
-
-    .autocomplete-list { position: absolute; top: calc(100%+4px); left:0; right:0; background: var(--white); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); max-height: 220px; overflow-y: auto; z-index: 20; display: none; }
-    .autocomplete-list.show { display: block; }
-    .autocomplete-item { padding: 10px 13px; font-size: 13.5px; cursor: pointer; border-bottom: 1px solid var(--bg); }
-    .autocomplete-item:last-child { border-bottom: none; }
-    .autocomplete-item:hover { background: var(--green-100); }
-    .autocomplete-item .sub-info { font-size: 11.5px; color: var(--muted); }
-
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px 18px; border: none; border-radius: 10px; background: var(--green-700); color: var(--white); font-family: 'Inter', sans-serif; font-size: 14.5px; font-weight: 700; cursor: pointer; transition: background .15s; }
-    .btn:hover { background: var(--green-900); }
-    .btn:disabled { background: #9CB8A9; cursor: not-allowed; }
-    .btn-sm { width: auto; padding: 7px 14px; font-size: 12.5px; border-radius: 8px; }
-
-    .alert { padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 16px; display: none; }
-    .alert.show { display: block; }
-    .alert-success { background: #E3F5EA; color: var(--green-900); border: 1px solid var(--green-500); }
-    .alert-error { background: #FDECEA; color: var(--danger); border: 1px solid #F5B7B1; }
-
-    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
-    .badge-ed-EXPIRED { background: var(--danger); color: #fff; }
-    .badge-ed-NEAR3 { background: var(--warn3); color: #fff; }
-    .badge-ed-NEAR6 { background: var(--warn6); color: #3A2A00; }
-    .badge-ed-AMAN { background: var(--safe); color: #fff; }
-    .badge-kirim-menunggu { background: #FFF3E0; color: #B45309; }
-    .badge-kirim-diterima { background: #E3F5EA; color: var(--green-900); }
-    .badge-kirim-draft { background: #ECEFF1; color: #546E7A; }
-    .badge-kirim-dibatalkan { background: #FDECEA; color: #B91C1C; text-decoration: line-through; }
-
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    thead th { text-align: left; font-size: 11.5px; text-transform: uppercase; color: var(--muted); padding: 10px 8px; border-bottom: 2px solid var(--border); }
-    tbody td { padding: 10px 8px; border-bottom: 1px solid var(--bg); vertical-align: middle; }
-    tbody tr:hover { background: var(--green-100); }
-
-    .table-scroll { overflow-x: auto; border-radius: 10px; }
-    .pagination { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; font-size: 13px; }
-    .pagination button { padding: 6px 13px; border: 1px solid var(--border); background: var(--white); border-radius: 8px; cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--green-900); }
-    .pagination button:disabled { color: var(--muted); cursor: not-allowed; opacity: .45; }
-    .pagination .page-info { color: var(--muted); font-weight: 600; }
-
-    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
-    .empty-state .icon { font-size: 28px; margin-bottom: 8px; }
-
-    .riwayat-header-fixed { padding-bottom: 14px; margin-bottom: 12px; border-bottom: 1px solid var(--border); }
-    .riwayat-scroll-body { max-height: 62vh; overflow-y: auto; }
-    @media (max-width: 960px) { .riwayat-scroll-body { max-height: 55vh; } }
-
-    /* Modal */
-    #modalEditOverlay, #modalTutorialOverlay {
-      display: none; position: fixed; inset: 0; background: rgba(11,74,42,0.35); z-index: 50; align-items: center; justify-content: center; padding: 20px;
-    }
-    #modalEditOverlay .card, #modalTutorialOverlay .card { max-width: 380px; width: 100%; margin: 0; }
-    #modalTutorialOverlay .card { max-width: 720px; max-height: 85vh; overflow-y: auto; }
-  </style>
 </head>
 <body>
 <div class="app-shell">
@@ -260,18 +138,20 @@
     </div>
   </div>
 
-  <!-- TAB DASHBOARD (placeholder, nanti di-load dari dashboard.html atau inline) -->
+  <!-- TAB DASHBOARD -->
   <div id="tabDashboard" style="display:none;">
     <div class="card">
       <h2>Dashboard Gudang Farmasi</h2>
-      <p class="sub">Fitur dashboard akan di-load dari file terpisah atau bisa diintegrasikan di sini. Untuk saat ini, silakan gunakan tombol navigasi.</p>
-      <p>Implementasi lengkap dashboard dapat ditambahkan di file <code>dashboard.html</code> atau di tab ini.</p>
+      <p class="sub">Fungsi dashboard sedang dalam pengembangan. Silakan gunakan aplikasi berbasis Google Apps Script atau tambahkan sendiri logikanya.</p>
+      <p>Untuk saat ini, data dapat diakses melalui tabel riwayat di tab Input Retur.</p>
+      <button class="btn" id="btnLoadDashboard">Muat Data Monitoring</button>
+      <div id="dashboardResult"></div>
     </div>
   </div>
 </div>
 
 <!-- Modal Edit Jumlah -->
-<div id="modalEditOverlay">
+<div id="modalEditOverlay" class="modal-overlay">
   <div class="card">
     <h2>Edit Jumlah</h2>
     <p class="sub">ID Retur: <strong id="editIdRetur"></strong><br>Barang: <span id="editNamaBarang"></span></p>
@@ -284,8 +164,8 @@
 </div>
 
 <!-- Modal Tutorial -->
-<div id="modalTutorialOverlay">
-  <div class="card">
+<div id="modalTutorialOverlay" class="modal-overlay">
+  <div class="card" style="max-width:720px; max-height:85vh; overflow-y:auto;">
     <h2>📘 Tutorial Aplikasi</h2>
     <p class="sub">Panduan singkat untuk staff unit.</p>
     <h3>1️⃣ Input Laporan Retur</h3>
@@ -300,7 +180,7 @@
 
 <script>
   // ==========================================================
-  // KODE JAVASCRIPT UTAMA
+  // KODE JAVASCRIPT UTAMA (sama seperti sebelumnya)
   // ==========================================================
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -328,7 +208,7 @@
   // --- STATE ---
   let staffList = [];
   let barangList = [];
-  let unitMap = {}; // id -> nama
+  let unitMap = {};
   let rawRowsRiwayat = [];
   let allRowsRiwayat = [];
   let currentPageRiwayat = 1;
@@ -655,7 +535,6 @@
 
   // --- FUNGSI API ---
   async function kirimKeGudang(idRetur) {
-    // Cek status & ED
     const { data, error } = await supabaseClient.from('master_data').select('status_pengiriman, tgl_ed').eq('id_retur', idRetur).single();
     if (error) throw error;
     if (data.status_pengiriman !== 'Draft') throw new Error('Sudah dikirim.');
@@ -704,11 +583,10 @@
     $('tabDashboard').style.display = 'block';
     document.querySelectorAll('.nav-pill a').forEach(a => a.classList.remove('active'));
     $('navDashboard').classList.add('active');
-    // Load dashboard content
     loadDashboard();
   });
 
-  // --- DASHBOARD (sederhana, bisa dikembangkan) ---
+  // --- DASHBOARD ---
   async function loadDashboard() {
     const container = $('tabDashboard');
     container.innerHTML = `
@@ -724,7 +602,6 @@
       this.disabled = true;
       this.textContent = 'Memuat...';
       try {
-        // Contoh: ambil semua data yang belum diterima
         const { data, error } = await supabaseClient
           .from('master_data')
           .select('*, unit(nama)')
@@ -757,7 +634,6 @@
   (async function init() {
     try {
       const units = await loadUnits();
-      // isi dropdown unit
       const sel = filterUnitRiwayat;
       sel.innerHTML = '<option value="">-- Pilih --</option>';
       units.forEach(u => {
@@ -769,7 +645,6 @@
       await loadStaff();
       await loadBarang();
       $('tglRetur').valueAsDate = new Date();
-      // event listener unit
       filterUnitRiwayat.addEventListener('change', function() {
         loadRiwayat(parseInt(this.value));
       });
