@@ -1,5 +1,5 @@
 // config.js
-const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key';
+const SUPABASE_URL = 'https://bfpzfzjaumnyukwzlevq.supabase.co/rest/v1/';
+const SUPABASE_ANON_KEY = 'sb_publishable_3UijJQbb-6dFQKM8u10q3g_DKzk8Vyt';
 
 // Ganti dengan URL dan anon key dari proyek Supabase Anda.
