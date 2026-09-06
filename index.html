@@ -374,20 +374,23 @@
   // --- LOAD DATA REFERENSI ---
   async function loadUnits() {
     const { data, error } = await supabaseClient.from('unit').select('id, nama').order('nama');
-    if (error) throw error;
+    if (error) { console.error('loadUnits error:', error); throw error; }
     data.forEach(u => unitMap[u.id] = u.nama);
+    console.log('Units loaded:', data.length);
     return data;
   }
   async function loadStaff() {
     const { data, error } = await supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif');
-    if (error) throw error;
+    if (error) { console.error('loadStaff error:', error); throw error; }
     staffList = data.map(r => ({ nama: r.nama, unit: unitMap[r.unit_id] || '' }));
+    console.log('Staff loaded:', staffList.length);
     return staffList;
   }
   async function loadBarang() {
     const { data, error } = await supabaseClient.from('data_barang').select('kode_barang, nama_barang, harga_satuan');
-    if (error) throw error;
+    if (error) { console.error('loadBarang error:', error); throw error; }
     barangList = data.map(r => ({ id: r.kode_barang, nama: r.nama_barang, harga: r.harga_satuan }));
+    console.log('Barang loaded:', barangList.length);
     return barangList;
   }
 
@@ -405,6 +408,7 @@
     container.classList.add('show');
   }
 
+  // Autocomplete Nama Petugas
   $('searchNama').addEventListener('input', function() {
     const q = this.value.trim().toLowerCase();
     $('namaPetugas').value = ''; $('unitAsal').value = '';
@@ -416,6 +420,7 @@
     );
   });
 
+  // Autocomplete Nama Barang
   $('searchBarang').addEventListener('input', function() {
     const q = this.value.trim().toLowerCase();
     $('idBarang').value = ''; $('hargaSatuan').value = ''; $('hargaSatuanDisplay').value = '';
@@ -427,6 +432,7 @@
     );
   });
 
+  // Tutup autocomplete saat klik di luar
   document.addEventListener('click', e => {
     if (!e.target.closest('.field')) { $('listNama').classList.remove('show'); $('listBarang').classList.remove('show'); $('listNamaGudang').classList.remove('show'); }
   });
@@ -476,7 +482,7 @@
 
   async function submitRetur(form) {
     const { data: idRetur, error: idError } = await supabaseClient.rpc('generate_id_retur');
-    if (idError || !idRetur) throw new Error('Gagal generate ID');
+    if (idError || !idRetur) throw new Error('Gagal generate ID: ' + (idError?.message || ''));
     const jumlah = Number(form.jumlah) || 0;
     const harga = Number(form.hargaSatuan) || 0;
     const { error } = await supabaseClient.from('master_data').insert([{
@@ -673,17 +679,20 @@
 
   function initDashboard() {
     // Load units to all filter dropdowns
-    supabaseClient.from('unit').select('id, nama').order('nama').then(({ data }) => {
+    supabaseClient.from('unit').select('id, nama').order('nama').then(({ data, error }) => {
+      if (error) { console.error('load units for dashboard:', error); return; }
       const selects = ['filterUnit', 'filterUnitArsip', 'filterUnitExpired', 'filterUnitMonitoring'];
       selects.forEach(id => {
         const sel = $(id);
         if (!sel) return;
+        sel.innerHTML = '<option value="SEMUA">Semua Unit</option>';
         data.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nama; sel.appendChild(opt); });
       });
     });
 
     // Load staff for modal penerimaan
-    supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif').then(({ data }) => {
+    supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif').then(({ data, error }) => {
+      if (error) { console.error('load staff for dashboard:', error); return; }
       staffList = data.map(r => ({ nama: r.nama, unit: unitMap[r.unit_id] || '' }));
     });
 
@@ -942,7 +951,7 @@
     renderPagination('paginationExpired', allRowsExpired.length, currentPageExpired, p => { currentPageExpired = p; renderPageExpired(); });
   }
 
-  // --- MUSNAHKAN (DELETE DATA) ---
+  // --- MUSNAHKAN ---
   window.musnahkanHandler = async function(idRetur) {
     if (!confirm('Tandai ' + idRetur + ' sebagai "Dimusnahkan"?\n\nData tidak akan terhapus, status berubah menjadi "Dimusnahkan" dan tidak tampil di laporan aktif.')) return;
 
@@ -1069,7 +1078,10 @@
       $('filterUnitRiwayat').addEventListener('change', function() { loadRiwayat(parseInt(this.value)); });
       $('searchRiwayat').addEventListener('input', applyRiwayatSort);
       $('sortRiwayat').addEventListener('change', applyRiwayatSort);
-    } catch (err) { showAlert('error', 'Gagal inisialisasi: ' + err.message); }
+    } catch (err) {
+      console.error('Init error:', err);
+      showAlert('error', 'Gagal inisialisasi: ' + err.message);
+    }
   })();
 </script>
 </body>
