@@ -371,7 +371,10 @@
   let dashboardPassword = '';
   let currentIdRetur = null, currentRowNumber = null, currentEditIdRetur = null, currentEditRowNumber = null;
 
-  // --- LOAD DATA REFERENSI (URUTAN PENTING) ---
+  // ============================================================
+  // LOAD DATA REFERENSI (DENGAN PERBAIKAN STAFF)
+  // ============================================================
+
   async function loadUnits() {
     const { data, error } = await supabaseClient.from('unit').select('id, nama').order('nama');
     if (error) { console.error('loadUnits error:', error); throw error; }
@@ -381,20 +384,38 @@
   }
 
   async function loadStaff() {
-    // Pastikan unitMap sudah terisi
-    if (Object.keys(unitMap).length === 0) {
-      console.warn('unitMap empty, loading units first...');
-      await loadUnits();
+    try {
+      // Ambil semua petugas (tanpa filter status_akun, untuk testing)
+      const { data, error } = await supabaseClient
+        .from('daftar_petugas')
+        .select('nama, unit_id');
+
+      if (error) {
+        console.error('loadStaff error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('Tabel daftar_petugas kosong!');
+        staffList = [];
+        showAlert('warning', 'Data petugas kosong. Hubungi admin.');
+        return [];
+      }
+
+      // Map unit_id ke nama unit (fallback jika unit tidak ditemukan)
+      staffList = data.map(r => {
+        const unitName = unitMap[r.unit_id] || 'Unit tidak dikenal';
+        return { nama: r.nama, unit: unitName };
+      });
+
+      console.log('Staff loaded:', staffList.length, staffList.slice(0, 3));
+      return staffList;
+    } catch (err) {
+      console.error('loadStaff error:', err);
+      showAlert('error', 'Gagal memuat data petugas: ' + err.message);
+      staffList = [];
+      return [];
     }
-    const { data, error } = await supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif');
-    if (error) { console.error('loadStaff error:', error); throw error; }
-    // Map unit_id ke nama unit
-    staffList = data.map(r => {
-      const unitName = unitMap[r.unit_id] || 'Unit tidak dikenal (ID: ' + r.unit_id + ')';
-      return { nama: r.nama, unit: unitName };
-    });
-    console.log('Staff loaded:', staffList.length);
-    return staffList;
   }
 
   async function loadBarang() {
@@ -424,9 +445,21 @@
     const q = this.value.trim().toLowerCase();
     $('namaPetugas').value = ''; $('unitAsal').value = '';
     if (!q) { $('listNama').classList.remove('show'); return; }
-    // Filter staffList
+
+    // Pastikan staffList tidak kosong
+    if (staffList.length === 0) {
+      console.warn('staffList kosong, coba reload data...');
+      loadStaff().then(() => {
+        const matches = staffList.filter(s => s.nama.toLowerCase().includes(q)).slice(0, 8);
+        renderAutocomplete($('listNama'), matches,
+          item => item.nama + '<div class="sub-info">' + item.unit + '</div>',
+          item => { $('searchNama').value = item.nama; $('namaPetugas').value = item.nama; $('unitAsal').value = item.unit; }
+        );
+      });
+      return;
+    }
+
     const matches = staffList.filter(s => s.nama.toLowerCase().includes(q)).slice(0, 8);
-    console.log('Staff matches:', matches.length);
     renderAutocomplete($('listNama'), matches,
       item => item.nama + '<div class="sub-info">' + item.unit + '</div>',
       item => { $('searchNama').value = item.nama; $('namaPetugas').value = item.nama; $('unitAsal').value = item.unit; }
@@ -1080,7 +1113,7 @@
   // ============================================================
   (async function init() {
     try {
-      // 1. Load units dulu untuk mengisi unitMap
+      // 1. Load units dulu
       const units = await loadUnits();
       console.log('Units loaded, unitMap size:', Object.keys(unitMap).length);
 
@@ -1089,7 +1122,7 @@
       sel.innerHTML = '<option value="">-- Pilih --</option>';
       units.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nama; sel.appendChild(opt); });
 
-      // 3. Load staff dan barang
+      // 3. Load staff & barang
       await loadStaff();
       await loadBarang();
 
@@ -1101,12 +1134,12 @@
       $('searchRiwayat').addEventListener('input', applyRiwayatSort);
       $('sortRiwayat').addEventListener('change', applyRiwayatSort);
 
-      console.log('Inisialisasi selesai. Staff:', staffList.length, 'Barang:', barangList.length);
+      console.log('✅ Inisialisasi selesai. Staff:', staffList.length, 'Barang:', barangList.length);
       if (staffList.length === 0) {
-        showAlert('warning', 'Data petugas kosong. Periksa tabel daftar_petugas di Supabase.');
+        showAlert('warning', '⚠️ Data petugas kosong. Hubungi admin untuk menambahkan petugas.');
       }
     } catch (err) {
-      console.error('Init error:', err);
+      console.error('❌ Init error:', err);
       showAlert('error', 'Gagal inisialisasi: ' + err.message);
     }
   })();
