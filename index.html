@@ -4,17 +4,41 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Laporan Obat/BMHP Expired — Farmasi RSUD</title>
-  
-  <!-- Link ke style.css eksternal -->
   <link rel="stylesheet" href="css/style.css">
-  
-  <!-- Library eksternal -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="js/config.js"></script>
+  <style>
+    /* ===== SIDEBAR STYLE (override jika perlu) ===== */
+    .dashboard-wrap { display: flex; min-height: calc(100vh - 60px); gap: 0; background: var(--bg); }
+    .sidebar { width: 260px; flex-shrink: 0; background: var(--white); border-right: 1px solid var(--border); padding: 20px 0 20px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .sidebar .brand { padding: 0 16px 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .sidebar .brand .logo { display: flex; align-items: center; gap: 10px; }
+    .sidebar .brand .logo .cross { width: 32px; height: 32px; border-radius: 8px; background: var(--green-700); position: relative; flex-shrink: 0; }
+    .sidebar .brand .logo .cross::before, .sidebar .brand .logo .cross::after { content: ''; position: absolute; background: var(--white); border-radius: 2px; }
+    .sidebar .brand .logo .cross::before { width: 14px; height: 3px; top: 14.5px; left: 9px; }
+    .sidebar .brand .logo .cross::after { width: 3px; height: 14px; top: 9px; left: 14.5px; }
+    .sidebar .brand h2 { font-size: 15px; font-weight: 700; color: var(--green-900); margin: 0; }
+    .sidebar .brand p { font-size: 11px; color: var(--muted); margin: 0; }
+    .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); background: transparent; border: none; width: 100%; text-align: left; cursor: pointer; transition: background .15s, color .15s; font-family: 'Inter', sans-serif; }
+    .sidebar-item:hover { background: var(--green-100); color: var(--green-900); }
+    .sidebar-item.active { background: var(--green-700); color: var(--white); }
+    .sidebar-item .icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+    .sidebar .nav-bottom { margin-top: auto; padding: 16px 16px 0; border-top: 1px solid var(--border); }
+    .sidebar .nav-bottom a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; transition: background .15s; }
+    .sidebar .nav-bottom a:hover { background: var(--green-100); color: var(--green-900); }
+    .main-content { flex: 1; padding: 20px 28px 40px; min-width: 0; overflow-x: auto; }
+    .main-content .stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(11, 74, 42, 0.35); z-index: 50; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal-overlay .card { max-width: 380px; width: 100%; margin: 0; }
+    @media (max-width: 860px) { .dashboard-wrap { flex-direction: column; } .sidebar { width: 100%; height: auto; position: relative; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { display: none; } .sidebar-item { width: auto; padding: 8px 14px; font-size: 12.5px; } .sidebar .nav-bottom { display: none; } .main-content { padding: 16px; } }
+  </style>
 </head>
 <body>
 <div class="app-shell">
+
+  <!-- ===== TOPBAR ===== -->
   <div class="header-sticky">
     <div class="topbar">
       <div class="cross"></div>
@@ -32,9 +56,10 @@
 
   <div id="alertBox" class="alert"></div>
 
-  <!-- TAB INPUT -->
+  <!-- ===== TAB INPUT ===== -->
   <div id="tabInput">
     <div class="two-col">
+      <!-- Form Retur -->
       <div class="card form-sticky-card">
         <h2>Form Retur Barang Expired</h2>
         <p class="sub">Isi data barang yang berstatus expired / near ED untuk dikirim ke Gudang Farmasi Utama.</p>
@@ -47,17 +72,11 @@
           </div>
           <div class="field">
             <label>Unit / Gudang Asal</label>
-            <input type="text" id="unitAsal" disabled placeholder="Terisi otomatis setelah pilih nama">
+            <input type="text" id="unitAsal" disabled placeholder="Terisi otomatis">
           </div>
           <div class="row-2">
-            <div class="field">
-              <label>Tgl Retur</label>
-              <input type="date" id="tglRetur">
-            </div>
-            <div class="field">
-              <label>Tgl ED (Expired Date)</label>
-              <input type="date" id="tglED">
-            </div>
+            <div class="field"><label>Tgl Retur</label><input type="date" id="tglRetur"></div>
+            <div class="field"><label>Tgl ED</label><input type="date" id="tglED"></div>
           </div>
           <div id="statusEDPreview" class="hint" style="margin:-8px 0 16px;"></div>
           <div class="field">
@@ -66,25 +85,12 @@
             <div id="listBarang" class="autocomplete-list"></div>
           </div>
           <div class="row-2">
-            <div class="field">
-              <label>ID Barang</label>
-              <input type="text" id="idBarang" disabled placeholder="Terisi otomatis">
-            </div>
-            <div class="field">
-              <label>Harga Satuan</label>
-              <input type="text" id="hargaSatuanDisplay" disabled placeholder="Terisi otomatis">
-              <input type="hidden" id="hargaSatuan">
-            </div>
+            <div class="field"><label>ID Barang</label><input type="text" id="idBarang" disabled></div>
+            <div class="field"><label>Harga Satuan</label><input type="text" id="hargaSatuanDisplay" disabled><input type="hidden" id="hargaSatuan"></div>
           </div>
           <div class="row-2">
-            <div class="field">
-              <label>Jumlah</label>
-              <input type="number" id="jumlah" min="1" placeholder="0">
-            </div>
-            <div class="field">
-              <label>No. Batch</label>
-              <input type="text" id="noBatch" placeholder="Contoh: B-2024-001">
-            </div>
+            <div class="field"><label>Jumlah</label><input type="number" id="jumlah" min="1" placeholder="0"></div>
+            <div class="field"><label>No. Batch</label><input type="text" id="noBatch" placeholder="B-2024-001"></div>
           </div>
           <div class="field">
             <label>Status Barang</label>
@@ -99,10 +105,11 @@
         </form>
       </div>
 
+      <!-- Riwayat Retur -->
       <div class="card">
         <div class="riwayat-header-fixed">
           <h2>Riwayat Retur & Edit Jumlah</h2>
-          <p class="sub">Pilih Gudang/Unit untuk melihat daftar laporan. Jumlah bisa diedit selama status masih <strong>"Menunggu Dikirim ke Gudang Utama"</strong>.</p>
+          <p class="sub">Pilih unit untuk melihat laporan. Jumlah bisa diedit selama status <strong>Draft</strong> atau <strong>Menunggu Dikirim</strong>.</p>
           <div class="field" style="max-width:320px;">
             <label>Pilih Gudang/Unit</label>
             <select id="filterUnitRiwayat"><option value="">-- Pilih --</option></select>
@@ -138,50 +145,173 @@
     </div>
   </div>
 
-  <!-- TAB DASHBOARD -->
+  <!-- ===== TAB DASHBOARD ===== -->
   <div id="tabDashboard" style="display:none;">
-    <div class="card">
-      <h2>Dashboard Gudang Farmasi</h2>
-      <p class="sub">Fungsi dashboard sedang dalam pengembangan. Silakan gunakan aplikasi berbasis Google Apps Script atau tambahkan sendiri logikanya.</p>
-      <p>Untuk saat ini, data dapat diakses melalui tabel riwayat di tab Input Retur.</p>
-      <button class="btn" id="btnLoadDashboard">Muat Data Monitoring</button>
-      <div id="dashboardResult"></div>
+    <div id="passwordGate" style="min-height:60vh; display:flex; align-items:center; justify-content:center; padding:20px;">
+      <div class="card" style="max-width:380px; width:100%; margin:0;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+          <div class="cross"></div>
+          <div><h2 style="margin:0;">Dashboard Gudang Farmasi</h2><p class="sub" style="margin:2px 0 0;">Khusus petugas Gudang Farmasi Utama</p></div>
+        </div>
+        <div id="passwordError" class="alert alert-error"></div>
+        <div class="field"><label>Kata Sandi</label><input type="password" id="dashboardPassword" placeholder="Masukkan kata sandi..."></div>
+        <button class="btn" id="btnMasukDashboard">Masuk</button>
+      </div>
+    </div>
+
+    <div id="dashboardContent" style="display:none;">
+      <div style="background:var(--bg); padding:12px 28px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="cross" style="width:28px;height:28px;border-radius:6px;"></div>
+          <span style="font-weight:700;color:var(--green-900);font-size:14px;">Gudang Farmasi Utama</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <a href="#" id="navDashboardBack" style="text-decoration:none;font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:999px;background:var(--white);border:1px solid var(--border);">← Input Retur</a>
+          <span style="font-size:12.5px;font-weight:600;color:var(--white);padding:6px 14px;border-radius:999px;background:var(--green-700);">Dashboard</span>
+        </div>
+      </div>
+
+      <div class="dashboard-wrap">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="brand"><div class="logo"><div class="cross"></div><div><h2>Dashboard</h2><p>Gudang Farmasi</p></div></div></div>
+          <button class="sidebar-item active" data-tab="monitoring"><span class="icon">📊</span> Monitoring Semua Barang</button>
+          <button class="sidebar-item" data-tab="retur"><span class="icon">📦</span> Data Retur Masuk</button>
+          <button class="sidebar-item" data-tab="expired"><span class="icon">⚠️</span> Laporan Expired Diterima</button>
+          <button class="sidebar-item" data-tab="arsip"><span class="icon">🗄️</span> Arsip Riwayat Lama</button>
+          <div class="nav-bottom"><a href="#" id="navDashboardBack2">← Kembali ke Input Retur</a></div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content" id="dashboardMainContent">
+          <div id="alertBoxDash" class="alert"></div>
+
+          <!-- Stat Strip -->
+          <div class="stat-strip" id="statStrip">
+            <div class="stat-box"><div class="num" id="statMenunggu">-</div><div class="lbl">Menunggu Diterima</div></div>
+            <div class="stat-box"><div class="num" id="statDiterima">-</div><div class="lbl">Sudah Diterima</div></div>
+            <div class="stat-box"><div class="num" id="statTotal">-</div><div class="lbl">Total Laporan</div></div>
+            <div class="stat-box" style="border-color:var(--danger);"><div class="num" id="statNilaiExpired" style="color:var(--danger);">-</div><div class="lbl">Total Nilai Expired</div></div>
+            <div class="stat-box" style="border-color:var(--warn3);"><div class="num" id="statNilaiNear3" style="color:var(--warn3);">-</div><div class="lbl">Total Nilai NEAR ED3</div></div>
+            <div class="stat-box" style="border-color:var(--warn6);"><div class="num" id="statNilaiNear6" style="color:#B8860B;">-</div><div class="lbl">Total Nilai NEAR ED6</div></div>
+          </div>
+
+          <!-- Panel Monitoring -->
+          <div class="tab-panel" id="tab-monitoring">
+            <h2>Monitoring Semua Barang</h2>
+            <p class="sub">Semua barang yang belum diterima gudang (termasuk Draft). Untuk pantauan dini.</p>
+            <div class="filters">
+              <select id="filterUnitMonitoring"><option value="SEMUA">Semua Unit</option></select>
+              <select id="filterStatusEDMonitoring"><option value="SEMUA">Semua Status ED</option><option value="AMAN">AMAN</option><option value="NEAR ED6">NEAR ED6</option><option value="NEAR ED3">NEAR ED3</option><option value="EXPIRED DATE">EXPIRED DATE</option></select>
+              <select id="filterStatusBarangMonitoring"><option value="SEMUA">Semua Status Barang</option><option value="FAST MOVING">FAST MOVING</option><option value="SLOW MOVING">SLOW MOVING</option><option value="DEATH STOCK">DEATH STOCK</option></select>
+              <input type="text" id="filterNamaBarangMonitoring" placeholder="Cari nama barang...">
+              <input type="date" id="filterStartMonitoring" title="Dari tanggal retur">
+              <input type="date" id="filterEndMonitoring" title="Sampai tanggal retur">
+              <button class="btn btn-sm" id="btnLoadMonitoring" style="width:auto;">Cari</button>
+              <button class="btn btn-sm" id="btnCetakMonitoring" style="width:auto; background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintMonitoring" style="width:auto; background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Barang</th><th>Petugas</th><th>Status Kirim</th><th>Nilai</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="11" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiMonitoring">-</td></tr></tfoot><tbody id="tableBodyMonitoring"></tbody></table><div id="emptyStateMonitoring" class="empty-state" style="display:none;"><div class="icon">🔍</div><div>Tidak ada data.</div></div></div>
+            <div id="paginationMonitoring" class="pagination"></div>
+          </div>
+
+          <!-- Panel Retur Masuk -->
+          <div class="tab-panel" id="tab-retur" style="display:none;">
+            <h2>Data Retur Masuk dari Seluruh Unit</h2>
+            <p class="sub">Tandai "Diterima" setelah barang fisik sampai di Gudang.</p>
+            <div class="filters">
+              <select id="filterUnit"><option value="SEMUA">Semua Unit</option></select>
+              <select id="filterStatus"><option value="Menunggu Dikirim ke Gudang Utama">Menunggu</option><option value="Diterima Gudang Utama">Diterima</option><option value="SEMUA">Semua</option></select>
+              <input type="date" id="filterStart"><input type="date" id="filterEnd">
+              <button class="btn btn-sm" id="btnRefresh" style="width:auto;">Refresh</button>
+              <button class="btn btn-sm" id="btnResetFilter" style="width:auto;background:#9CB8A9;">Reset</button>
+              <button class="btn btn-sm" id="btnCetakMain" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintMain" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Barang</th><th>Petugas</th><th>Status Kirim</th><th>Diterima Oleh</th><th>Nilai</th><th>Aksi</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="12" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiMain">-</td><td></td></tr></tfoot><tbody id="tableBody"></tbody></table><div id="emptyState" class="empty-state" style="display:none;"><div class="icon">📦</div><div>Tidak ada data.</div></div></div>
+            <div id="paginationMain" class="pagination"></div>
+          </div>
+
+          <!-- Panel Expired Diterima (dengan tombol Musnahkan) -->
+          <div class="tab-panel" id="tab-expired" style="display:none;">
+            <h2>Laporan Barang Expired yang Sudah Diterima</h2>
+            <p class="sub">Barang yang sudah diterima Gudang dan status ED = EXPIRED DATE. <strong style="color:var(--danger);">Tombol Musnahkan</strong> untuk menandai barang sudah dimusnahkan (data tetap tersimpan).</p>
+            <div class="filters">
+              <select id="filterUnitExpired"><option value="SEMUA">Semua Unit</option></select>
+              <select id="filterStatusEDExpired"><option value="EXPIRED DATE">Sudah Expired</option><option value="NEAR ED3">NEAR ED3</option><option value="NEAR ED6">NEAR ED6</option><option value="SEMUA">Semua</option></select>
+              <input type="date" id="filterStartExpired"><input type="date" id="filterEndExpired">
+              <button class="btn btn-sm" id="btnLoadExpired" style="width:auto;">Cari</button>
+              <button class="btn btn-sm" id="btnCetakExpired" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintExpired" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="stat-box" style="border-color:var(--danger);max-width:280px;margin-bottom:16px;"><div class="num" id="statTotalNilaiExpiredDiterima" style="color:var(--danger);">-</div><div class="lbl">Total Nilai Kerugian</div></div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Tgl ED</th><th>Status ED</th><th>Petugas</th><th>Diterima Oleh</th><th>Tgl Diterima</th><th>Nilai</th><th>Aksi</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="11" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiExpiredFooter">-</td><td></td></tr></tfoot><tbody id="tableBodyExpired"></tbody></table><div id="emptyStateExpired" class="empty-state" style="display:none;"><div class="icon">⚠️</div><div>Belum ada data.</div></div></div>
+            <div id="paginationExpired" class="pagination"></div>
+          </div>
+
+          <!-- Panel Arsip -->
+          <div class="tab-panel" id="tab-arsip" style="display:none;">
+            <h2>Arsip Riwayat Lama</h2>
+            <p class="sub">Data yang sudah diterima &gt; 90 hari, dipindah ke sini.</p>
+            <div class="filters">
+              <select id="filterUnitArsip"><option value="SEMUA">Semua Unit</option></select>
+              <input type="date" id="filterStartArsip"><input type="date" id="filterEndArsip">
+              <button class="btn btn-sm" id="btnLoadArsip" style="width:auto;">Cari</button>
+              <button class="btn btn-sm" id="btnCetakArsip" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintArsip" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Nilai</th><th>Diterima Oleh</th><th>Tgl Diterima</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="6" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiArsip">-</td><td></td><td></td></tr></tfoot><tbody id="tableBodyArsip"></tbody></table><div id="emptyStateArsip" class="empty-state" style="display:none;"><div class="icon">🗄️</div><div>Belum ada data.</div></div></div>
+            <div id="paginationArsip" class="pagination"></div>
+          </div>
+
+        </div>
+      </div>
     </div>
   </div>
+
 </div>
 
-<!-- Modal Edit Jumlah -->
+<!-- ===== MODAL EDIT JUMLAH ===== -->
 <div id="modalEditOverlay" class="modal-overlay">
   <div class="card">
     <h2>Edit Jumlah</h2>
     <p class="sub">ID Retur: <strong id="editIdRetur"></strong><br>Barang: <span id="editNamaBarang"></span></p>
     <div class="field"><label>Jumlah Baru</label><input type="number" id="editJumlahBaru" min="1"></div>
-    <div style="display:flex; gap:10px;">
-      <button class="btn" id="btnBatalEdit" style="background:#9CB8A9;">Batal</button>
-      <button class="btn" id="btnSimpanEdit">Simpan</button>
-    </div>
+    <div style="display:flex; gap:10px;"><button class="btn" id="btnBatalEdit" style="background:#9CB8A9;">Batal</button><button class="btn" id="btnSimpanEdit">Simpan</button></div>
   </div>
 </div>
 
-<!-- Modal Tutorial -->
+<!-- ===== MODAL KONFIRMASI PENERIMAAN ===== -->
+<div id="modalTerimaOverlay" class="modal-overlay">
+  <div class="card">
+    <h2>Konfirmasi Penerimaan</h2>
+    <p class="sub">ID Retur: <strong id="modalIdRetur"></strong></p>
+    <div class="field"><label>Nama Petugas Gudang</label><input type="text" id="searchNamaGudang" placeholder="Ketik nama..."><div id="listNamaGudang" class="autocomplete-list"></div><input type="hidden" id="namaPetugasGudang"></div>
+    <div style="display:flex; gap:10px;"><button class="btn" id="btnBatalTerima" style="background:#9CB8A9;">Batal</button><button class="btn" id="btnKonfirmasi">Tandai Diterima</button></div>
+  </div>
+</div>
+
+<!-- ===== MODAL TUTORIAL ===== -->
 <div id="modalTutorialOverlay" class="modal-overlay">
-  <div class="card" style="max-width:720px; max-height:85vh; overflow-y:auto;">
+  <div class="card" style="max-width:720px;max-height:85vh;overflow-y:auto;">
     <h2>📘 Tutorial Aplikasi</h2>
-    <p class="sub">Panduan singkat untuk staff unit.</p>
+    <p class="sub">Panduan singkat untuk staff unit & gudang.</p>
     <h3>1️⃣ Input Laporan Retur</h3>
     <ol><li>Ketik nama Anda, pilih dari saran.</li><li>Isi tanggal retur dan ED.</li><li>Ketik nama barang, pilih dari saran.</li><li>Isi jumlah dan no batch.</li><li>Pilih status barang.</li><li>Klik Kirim.</li></ol>
     <h3>2️⃣ Alur Status</h3>
     <p>Draft → Menunggu Dikirim → Diterima Gudang → Dimusnahkan / Dibatalkan.</p>
-    <h3>3️⃣ Riwayat & Edit Jumlah</h3>
-    <p>Pilih unit, lihat daftar, kirim ke gudang (hanya EXPIRED DATE), edit jumlah (jika belum diterima), batalkan.</p>
+    <h3>3️⃣ Dashboard Gudang</h3>
+    <p>Login dengan password untuk melihat monitoring, retur masuk, laporan expired, dan arsip.</p>
+    <h3>4️⃣ Musnahkan Data</h3>
+    <p>Di tab "Laporan Expired Diterima", klik <strong>🗑️ Musnahkan</strong> untuk menandai barang sudah dimusnahkan. Data tidak terhapus, status berubah menjadi "Dimusnahkan".</p>
     <button class="btn" id="btnTutupTutorial2" style="margin-top:16px;">Tutup</button>
   </div>
 </div>
 
 <script>
-  // ==========================================================
-  // KODE JAVASCRIPT UTAMA (sama seperti sebelumnya)
-  // ==========================================================
+  // ============================================================
+  // KODE JAVASCRIPT LENGKAP
+  // ============================================================
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   // --- HELPERS ---
@@ -204,38 +334,42 @@
     if (isNaN(d.getTime())) return val;
     return d.toLocaleDateString('id-ID', { day:'2-digit', month:'2-digit', year:'numeric' });
   }
+  function statusBadge(status) {
+    const cls = { 'EXPIRED DATE':'badge-ed-EXPIRED','NEAR ED3':'badge-ed-NEAR3','NEAR ED6':'badge-ed-NEAR6','AMAN':'badge-ed-AMAN' }[status] || '';
+    return status ? `<span class="badge ${cls}">${status}</span>` : '-';
+  }
+  function statusKirimBadge(s) {
+    const map = { 'Menunggu Dikirim ke Gudang Utama':'badge-kirim-menunggu','Diterima Gudang Utama':'badge-kirim-diterima','Draft':'badge-kirim-draft','Dibatalkan':'badge-kirim-dibatalkan','Dimusnahkan':'badge-kirim-dibatalkan' };
+    return `<span class="badge ${map[s]||''}">${s}</span>`;
+  }
+  function statusBarangBadge(status) {
+    const c = { 'FAST MOVING': {bg:'#2E7D32',color:'#fff'}, 'SLOW MOVING': {bg:'#FDD835',color:'#000'}, 'DEATH STOCK': {bg:'#000',color:'#fff'} }[status];
+    if (!c) return status || '-';
+    return `<span class="badge" style="background:${c.bg};color:${c.color};">${status}</span>`;
+  }
 
-  // --- STATE ---
-  let staffList = [];
-  let barangList = [];
-  let unitMap = {};
-  let rawRowsRiwayat = [];
-  let allRowsRiwayat = [];
-  let currentPageRiwayat = 1;
-  const PAGE_SIZE = 10;
-
-  // --- DOM REFS ---
   const $ = id => document.getElementById(id);
   const alertBox = $('alertBox');
-  const searchNama = $('searchNama');
-  const listNama = $('listNama');
-  const searchBarang = $('searchBarang');
-  const listBarang = $('listBarang');
-  const filterUnitRiwayat = $('filterUnitRiwayat');
-  const tableBodyRiwayat = $('tableBodyRiwayat');
-  const emptyStateRiwayat = $('emptyStateRiwayat');
-  const paginationRiwayat = $('paginationRiwayat');
-  const searchRiwayat = $('searchRiwayat');
-  const sortRiwayat = $('sortRiwayat');
-  const modalEdit = $('modalEditOverlay');
-  const modalTutorial = $('modalTutorialOverlay');
+  const alertDash = $('alertBoxDash');
 
-  // --- FUNGSI UMUM ---
-  function showAlert(type, msg) {
-    alertBox.className = 'alert show ' + (type==='success' ? 'alert-success' : 'alert-error');
-    alertBox.textContent = msg;
-    setTimeout(() => alertBox.classList.remove('show'), 6000);
+  function showAlert(type, msg, isDash) {
+    const box = isDash ? alertDash : alertBox;
+    if (!box) return;
+    box.className = 'alert show ' + (type==='success' ? 'alert-success' : 'alert-error');
+    box.textContent = msg;
+    setTimeout(() => box.classList.remove('show'), 6000);
   }
+
+  // --- STATE ---
+  let staffList = [], barangList = [], unitMap = {};
+  let rawRowsRiwayat = [], allRowsRiwayat = [], currentPageRiwayat = 1;
+  let serverRowsMain = [], allRowsMain = [], currentPageMain = 1;
+  let serverRowsMonitoring = [], allRowsMonitoring = [], currentPageMonitoring = 1;
+  let allRowsExpired = [], currentPageExpired = 1;
+  let allRowsArsip = [], currentPageArsip = 1;
+  const PAGE_SIZE = 10;
+  let dashboardPassword = '';
+  let currentIdRetur = null, currentRowNumber = null, currentEditIdRetur = null, currentEditRowNumber = null;
 
   // --- LOAD DATA REFERENSI ---
   async function loadUnits() {
@@ -244,14 +378,12 @@
     data.forEach(u => unitMap[u.id] = u.nama);
     return data;
   }
-
   async function loadStaff() {
     const { data, error } = await supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif');
     if (error) throw error;
     staffList = data.map(r => ({ nama: r.nama, unit: unitMap[r.unit_id] || '' }));
     return staffList;
   }
-
   async function loadBarang() {
     const { data, error } = await supabaseClient.from('data_barang').select('kode_barang, nama_barang, harga_satuan');
     if (error) throw error;
@@ -273,40 +405,35 @@
     container.classList.add('show');
   }
 
-  searchNama.addEventListener('input', function() {
+  $('searchNama').addEventListener('input', function() {
     const q = this.value.trim().toLowerCase();
-    $('namaPetugas').value = '';
-    $('unitAsal').value = '';
-    if (!q) { listNama.classList.remove('show'); return; }
+    $('namaPetugas').value = ''; $('unitAsal').value = '';
+    if (!q) { $('listNama').classList.remove('show'); return; }
     const matches = staffList.filter(s => s.nama.toLowerCase().includes(q)).slice(0, 8);
-    renderAutocomplete(listNama, matches, 
+    renderAutocomplete($('listNama'), matches,
       item => item.nama + '<div class="sub-info">' + item.unit + '</div>',
-      item => { searchNama.value = item.nama; $('namaPetugas').value = item.nama; $('unitAsal').value = item.unit; }
+      item => { $('searchNama').value = item.nama; $('namaPetugas').value = item.nama; $('unitAsal').value = item.unit; }
     );
   });
 
-  searchBarang.addEventListener('input', function() {
+  $('searchBarang').addEventListener('input', function() {
     const q = this.value.trim().toLowerCase();
-    $('idBarang').value = '';
-    $('hargaSatuan').value = '';
-    $('hargaSatuanDisplay').value = '';
-    if (!q) { listBarang.classList.remove('show'); return; }
+    $('idBarang').value = ''; $('hargaSatuan').value = ''; $('hargaSatuanDisplay').value = '';
+    if (!q) { $('listBarang').classList.remove('show'); return; }
     const matches = barangList.filter(b => b.nama.toLowerCase().includes(q) || b.id.toLowerCase().includes(q)).slice(0, 8);
-    renderAutocomplete(listBarang, matches,
+    renderAutocomplete($('listBarang'), matches,
       item => item.nama + '<div class="sub-info">' + item.id + '</div>',
-      item => { searchBarang.value = item.nama; $('idBarang').value = item.id; $('hargaSatuan').value = item.harga; $('hargaSatuanDisplay').value = formatRupiah(item.harga); }
+      item => { $('searchBarang').value = item.nama; $('idBarang').value = item.id; $('hargaSatuan').value = item.harga; $('hargaSatuanDisplay').value = formatRupiah(item.harga); }
     );
   });
 
   document.addEventListener('click', e => {
-    if (!e.target.closest('.field')) { listNama.classList.remove('show'); listBarang.classList.remove('show'); }
+    if (!e.target.closest('.field')) { $('listNama').classList.remove('show'); $('listBarang').classList.remove('show'); $('listNamaGudang').classList.remove('show'); }
   });
 
   $('tglED').addEventListener('change', function() {
     const val = this.value;
-    const preview = $('statusEDPreview');
-    if (!val) { preview.textContent = ''; return; }
-    preview.textContent = 'Status ED akan tercatat sebagai: ' + getStatusED(val);
+    $('statusEDPreview').textContent = val ? 'Status ED: ' + getStatusED(val) : '';
   });
 
   // --- SUBMIT RETUR ---
@@ -315,9 +442,11 @@
     const namaPetugas = $('namaPetugas').value;
     const unitAsal = $('unitAsal').value;
     const idBarang = $('idBarang').value;
-    const namaBarang = searchBarang.value;
+    const namaBarang = $('searchBarang').value;
     if (!namaPetugas) return showAlert('error', 'Pilih nama petugas.');
-    if (!idBarang) return showAlert('error', 'Pilih nama barang dari daftar.');
+    if (!idBarang) return showAlert('error', 'Pilih nama barang.');
+    const unitId = Object.keys(unitMap).find(key => unitMap[key] === unitAsal);
+    if (!unitId) return showAlert('error', 'Unit tidak valid.');
 
     const payload = {
       tglRetur: $('tglRetur').value,
@@ -328,35 +457,28 @@
       tglED: $('tglED').value,
       statusBarang: $('statusBarang').value,
       namaPetugas: namaPetugas,
-      unitId: Object.keys(unitMap).find(key => unitMap[key] === unitAsal),
+      unitId: parseInt(unitId),
       hargaSatuan: $('hargaSatuan').value
     };
-    if (!payload.unitId) return showAlert('error', 'Unit tidak valid.');
 
     const btn = $('btnSubmit');
     btn.disabled = true; btn.textContent = 'Mengirim...';
     try {
       const result = await submitRetur(payload);
-      showAlert('success', 'Berhasil! ID Retur: ' + result.idRetur);
+      showAlert('success', 'Berhasil! ID: ' + result.idRetur);
       $('returForm').reset();
-      $('unitAsal').value = '';
-      $('hargaSatuanDisplay').value = '';
+      $('unitAsal').value = ''; $('hargaSatuanDisplay').value = '';
       $('tglRetur').valueAsDate = new Date();
-      await loadRiwayat(parseInt(filterUnitRiwayat.value));
-    } catch (err) {
-      showAlert('error', err.message);
-    } finally {
-      btn.disabled = false; btn.textContent = 'Kirim Laporan Retur';
-    }
+      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
+    } catch (err) { showAlert('error', err.message); }
+    finally { btn.disabled = false; btn.textContent = 'Kirim Laporan Retur'; }
   });
 
   async function submitRetur(form) {
-    const idRetur = await supabaseClient.rpc('generate_id_retur').then(res => res.data);
-    if (!idRetur) throw new Error('Gagal generate ID retur');
-    const jumlah = Number(form.jumlah);
-    const hargaSatuan = Number(form.hargaSatuan) || 0;
-    const nilai = jumlah * hargaSatuan;
-    const statusED = getStatusED(form.tglED);
+    const { data: idRetur, error: idError } = await supabaseClient.rpc('generate_id_retur');
+    if (idError || !idRetur) throw new Error('Gagal generate ID');
+    const jumlah = Number(form.jumlah) || 0;
+    const harga = Number(form.hargaSatuan) || 0;
     const { error } = await supabaseClient.from('master_data').insert([{
       id_retur: idRetur,
       tgl_retur: form.tglRetur,
@@ -366,57 +488,37 @@
       no_batch: form.noBatch,
       tgl_ed: form.tglED,
       status_barang: form.statusBarang,
-      status_ed: statusED,
+      status_ed: getStatusED(form.tglED),
       nama_petugas: form.namaPetugas,
       unit_id: form.unitId,
       status_pengiriman: 'Draft',
-      harga_satuan_snapshot: hargaSatuan,
-      nilai: nilai
+      harga_satuan_snapshot: harga,
+      nilai: jumlah * harga
     }]);
     if (error) throw error;
-    return { idRetur, statusED };
+    return { idRetur };
   }
 
-  // --- RIWAYAT ---
+  // --- RIWAYAT RETUR ---
   async function loadRiwayat(unitId) {
     if (!unitId) { rawRowsRiwayat = []; allRowsRiwayat = []; renderRiwayat(); return; }
-    tableBodyRiwayat.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;">Memuat...</td></tr>';
+    $('tableBodyRiwayat').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Memuat...</td></tr>';
     try {
-      const { data, error } = await supabaseClient
-        .from('master_data')
-        .select('*')
-        .eq('unit_id', unitId)
-        .order('created_at', { ascending: false })
-        .limit(1000);
+      const { data, error } = await supabaseClient.from('master_data').select('*').eq('unit_id', unitId).order('created_at', { ascending: false }).limit(1000);
       if (error) throw error;
       rawRowsRiwayat = data.map(r => {
         const statusED = getStatusED(r.tgl_ed);
-        return {
-          ...r,
-          statusED: statusED,
-          bisaDiedit: r.status_pengiriman === 'Draft' || r.status_pengiriman === 'Menunggu Dikirim ke Gudang Utama',
-          bisaDikirim: r.status_pengiriman === 'Draft' && statusED === 'EXPIRED DATE',
-          bisaDibatalkan: r.status_pengiriman === 'Draft' || r.status_pengiriman === 'Menunggu Dikirim ke Gudang Utama'
-        };
+        return { ...r, statusED, bisaDiedit: r.status_pengiriman === 'Draft' || r.status_pengiriman === 'Menunggu Dikirim ke Gudang Utama', bisaDikirim: r.status_pengiriman === 'Draft' && statusED === 'EXPIRED DATE', bisaDibatalkan: r.status_pengiriman === 'Draft' || r.status_pengiriman === 'Menunggu Dikirim ke Gudang Utama' };
       });
-      applyRiwayatSortAndFilter();
-    } catch (err) {
-      showAlert('error', 'Gagal memuat riwayat: ' + err.message);
-      rawRowsRiwayat = []; allRowsRiwayat = []; renderRiwayat();
-    }
+      applyRiwayatSort();
+    } catch (err) { showAlert('error', 'Gagal memuat riwayat: ' + err.message); rawRowsRiwayat = []; allRowsRiwayat = []; renderRiwayat(); }
   }
 
-  function applyRiwayatSortAndFilter() {
-    const query = searchRiwayat.value.trim().toLowerCase();
-    const sortBy = sortRiwayat.value;
+  function applyRiwayatSort() {
+    const query = $('searchRiwayat').value.trim().toLowerCase();
+    const sortBy = $('sortRiwayat').value;
     let filtered = rawRowsRiwayat.slice();
-    if (query) {
-      filtered = filtered.filter(r => 
-        (r.nama_barang||'').toLowerCase().includes(query) ||
-        (r.id_retur||'').toLowerCase().includes(query) ||
-        (r.no_batch||'').toLowerCase().includes(query)
-      );
-    }
+    if (query) filtered = filtered.filter(r => (r.nama_barang||'').toLowerCase().includes(query) || (r.id_retur||'').toLowerCase().includes(query) || (r.no_batch||'').toLowerCase().includes(query));
     switch (sortBy) {
       case 'tgl_retur_terbaru': filtered.sort((a,b) => a.id_retur < b.id_retur ? 1 : -1); break;
       case 'tgl_retur_terlama': filtered.sort((a,b) => a.id_retur > b.id_retur ? 1 : -1); break;
@@ -427,149 +529,502 @@
       case 'jumlah_terbesar': filtered.sort((a,b) => (b.jumlah||0) - (a.jumlah||0)); break;
       case 'jumlah_terkecil': filtered.sort((a,b) => (a.jumlah||0) - (b.jumlah||0)); break;
     }
-    allRowsRiwayat = filtered;
-    currentPageRiwayat = 1;
-    renderRiwayat();
+    allRowsRiwayat = filtered; currentPageRiwayat = 1; renderRiwayat();
   }
 
   function renderRiwayat() {
-    tableBodyRiwayat.innerHTML = '';
-    if (!allRowsRiwayat || allRowsRiwayat.length === 0) {
-      emptyStateRiwayat.style.display = 'block';
-      paginationRiwayat.innerHTML = '';
-      return;
-    }
-    emptyStateRiwayat.style.display = 'none';
-    const start = (currentPageRiwayat - 1) * PAGE_SIZE;
-    const pageRows = allRowsRiwayat.slice(start, start + PAGE_SIZE);
+    const tbody = $('tableBodyRiwayat'); const empty = $('emptyStateRiwayat');
+    tbody.innerHTML = '';
+    if (!allRowsRiwayat || allRowsRiwayat.length === 0) { empty.style.display = 'block'; $('paginationRiwayat').innerHTML = ''; return; }
+    empty.style.display = 'none';
+    const start = (currentPageRiwayat-1)*PAGE_SIZE;
+    const pageRows = allRowsRiwayat.slice(start, start+PAGE_SIZE);
     pageRows.forEach(r => {
       const tr = document.createElement('tr');
       let aksi = '';
-      if (r.bisaDikirim) aksi += `<button class="btn btn-sm" style="background:var(--danger);margin-right:6px;" onclick="kirimKeGudangHandler('${r.id_retur}')">Kirim ke Gudang</button>`;
-      if (r.bisaDiedit) aksi += `<button class="btn btn-sm" style="margin-right:6px;" onclick="openEditModal('${r.id_retur}',${r.jumlah},'${r.nama_barang.replace(/'/g,"\\'")}')">Edit Jumlah</button>`;
+      if (r.bisaDikirim) aksi += `<button class="btn btn-sm" style="background:var(--danger);margin-right:6px;" onclick="kirimKeGudangHandler('${r.id_retur}')">Kirim</button>`;
+      if (r.bisaDiedit) aksi += `<button class="btn btn-sm" style="margin-right:6px;" onclick="openEditModal('${r.id_retur}',${r.jumlah},'${r.nama_barang.replace(/'/g,"\\'")}')">Edit</button>`;
       if (r.bisaDibatalkan) aksi += `<button class="btn btn-sm" style="background:#6B7280;" onclick="batalkanLaporanHandler('${r.id_retur}')">Batalkan</button>`;
       if (!aksi) aksi = '<span class="hint">Terkunci</span>';
-      tr.innerHTML = `
-        <td>${r.id_retur}</td>
-        <td>${formatDate(r.tgl_retur)}</td>
-        <td>${r.nama_barang}</td>
-        <td>${r.jumlah}</td>
-        <td>${r.no_batch||'-'}</td>
-        <td>${formatDate(r.tgl_ed)}</td>
-        <td>${statusBadge(r.statusED)}</td>
-        <td>${statusKirimBadge(r.status_pengiriman)}</td>
-        <td>${aksi}</td>
-      `;
-      tableBodyRiwayat.appendChild(tr);
+      tr.innerHTML = `<td>${r.id_retur}</td><td>${formatDate(r.tgl_retur)}</td><td>${r.nama_barang}</td><td>${r.jumlah}</td><td>${r.no_batch||'-'}</td><td>${formatDate(r.tgl_ed)}</td><td>${statusBadge(r.statusED)}</td><td>${statusKirimBadge(r.status_pengiriman)}</td><td>${aksi}</td>`;
+      tbody.appendChild(tr);
     });
-    renderPagination();
+    renderPagination('paginationRiwayat', allRowsRiwayat.length, currentPageRiwayat, p => { currentPageRiwayat = p; renderRiwayat(); });
   }
 
-  function statusBadge(status) {
-    const cls = { 'EXPIRED DATE':'badge-ed-EXPIRED','NEAR ED3':'badge-ed-NEAR3','NEAR ED6':'badge-ed-NEAR6','AMAN':'badge-ed-AMAN' }[status] || '';
-    return status ? `<span class="badge ${cls}">${status}</span>` : '-';
-  }
-  function statusKirimBadge(s) {
-    const map = { 'Menunggu Dikirim ke Gudang Utama':'badge-kirim-menunggu','Diterima Gudang Utama':'badge-kirim-diterima','Draft':'badge-kirim-draft','Dibatalkan':'badge-kirim-dibatalkan' };
-    return `<span class="badge ${map[s]||''}">${s}</span>`;
-  }
-
-  function renderPagination() {
-    const total = allRowsRiwayat.length;
-    const pages = Math.ceil(total/PAGE_SIZE);
-    paginationRiwayat.innerHTML = '';
+  function renderPagination(id, total, current, onChange) {
+    const container = $(id); const pages = Math.ceil(total/PAGE_SIZE);
+    container.innerHTML = '';
     if (pages <= 1) return;
-    const prev = document.createElement('button');
-    prev.textContent = '‹ Sebelumnya';
-    prev.disabled = currentPageRiwayat === 1;
-    prev.onclick = () => { currentPageRiwayat--; renderRiwayat(); };
-    const info = document.createElement('span');
-    info.className = 'page-info';
-    info.textContent = `Halaman ${currentPageRiwayat} dari ${pages} (${total} data)`;
-    const next = document.createElement('button');
-    next.textContent = 'Berikutnya ›';
-    next.disabled = currentPageRiwayat === pages;
-    next.onclick = () => { currentPageRiwayat++; renderRiwayat(); };
-    paginationRiwayat.append(prev, info, next);
+    const prev = document.createElement('button'); prev.textContent = '‹ Sebelumnya'; prev.disabled = current === 1; prev.onclick = () => onChange(current-1);
+    const info = document.createElement('span'); info.className = 'page-info'; info.textContent = `Halaman ${current} dari ${pages} (${total} data)`;
+    const next = document.createElement('button'); next.textContent = 'Berikutnya ›'; next.disabled = current === pages; next.onclick = () => onChange(current+1);
+    container.append(prev, info, next);
   }
 
-  // --- ACTION HANDLERS ---
+  // --- ACTION RIWAYAT ---
   window.kirimKeGudangHandler = async function(idRetur) {
-    if (!confirm('Kirim laporan ' + idRetur + ' ke Gudang Utama?')) return;
+    if (!confirm('Kirim ' + idRetur + ' ke Gudang?')) return;
     try {
-      await kirimKeGudang(idRetur);
-      showAlert('success', idRetur + ' berhasil dikirim.');
-      await loadRiwayat(parseInt(filterUnitRiwayat.value));
+      const { data, error } = await supabaseClient.from('master_data').select('status_pengiriman, tgl_ed').eq('id_retur', idRetur).single();
+      if (error) throw error;
+      if (data.status_pengiriman !== 'Draft') throw new Error('Sudah dikirim.');
+      if (getStatusED(data.tgl_ed) !== 'EXPIRED DATE') throw new Error('Hanya EXPIRED DATE yang bisa dikirim.');
+      await supabaseClient.from('master_data').update({ status_pengiriman: 'Menunggu Dikirim ke Gudang Utama' }).eq('id_retur', idRetur);
+      showAlert('success', idRetur + ' dikirim.');
+      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
     } catch (err) { showAlert('error', err.message); }
   };
 
   window.batalkanLaporanHandler = async function(idRetur) {
-    if (!confirm('Batalkan laporan ' + idRetur + '?')) return;
+    if (!confirm('Batalkan ' + idRetur + '?')) return;
     try {
-      await batalkanLaporan(idRetur);
+      const { data, error } = await supabaseClient.from('master_data').select('status_pengiriman').eq('id_retur', idRetur).single();
+      if (error) throw error;
+      if (data.status_pengiriman === 'Diterima Gudang Utama') throw new Error('Sudah diterima.');
+      if (data.status_pengiriman === 'Dibatalkan') throw new Error('Sudah dibatalkan.');
+      await supabaseClient.from('master_data').update({ status_pengiriman: 'Dibatalkan' }).eq('id_retur', idRetur);
       showAlert('success', idRetur + ' dibatalkan.');
-      await loadRiwayat(parseInt(filterUnitRiwayat.value));
+      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
     } catch (err) { showAlert('error', err.message); }
   };
 
   window.openEditModal = function(idRetur, jumlah, namaBarang) {
-    $('editIdRetur').textContent = idRetur;
-    $('editNamaBarang').textContent = namaBarang;
-    $('editJumlahBaru').value = jumlah;
-    modalEdit.style.display = 'flex';
-    window._editIdRetur = idRetur;
+    $('editIdRetur').textContent = idRetur; $('editNamaBarang').textContent = namaBarang;
+    $('editJumlahBaru').value = jumlah; currentEditIdRetur = idRetur;
+    $('modalEditOverlay').classList.add('show');
   };
-
-  $('btnBatalEdit').onclick = () => modalEdit.style.display = 'none';
+  $('btnBatalEdit').onclick = () => $('modalEditOverlay').classList.remove('show');
   $('btnSimpanEdit').onclick = async function() {
-    const idRetur = window._editIdRetur;
     const jumlah = $('editJumlahBaru').value;
-    if (!jumlah || Number(jumlah) <= 0) return showAlert('error', 'Jumlah harus > 0');
+    if (!jumlah || Number(jumlah) <= 0) return showAlert('error', 'Jumlah > 0');
     try {
-      await updateJumlahRetur(idRetur, jumlah);
+      const { data, error } = await supabaseClient.from('master_data').select('harga_satuan_snapshot, status_pengiriman').eq('id_retur', currentEditIdRetur).single();
+      if (error) throw error;
+      if (data.status_pengiriman === 'Diterima Gudang Utama') throw new Error('Tidak bisa diedit.');
+      const nilai = Number(jumlah) * (data.harga_satuan_snapshot || 0);
+      await supabaseClient.from('master_data').update({ jumlah: Number(jumlah), nilai: nilai }).eq('id_retur', currentEditIdRetur);
       showAlert('success', 'Jumlah diubah.');
-      modalEdit.style.display = 'none';
-      await loadRiwayat(parseInt(filterUnitRiwayat.value));
+      $('modalEditOverlay').classList.remove('show');
+      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
     } catch (err) { showAlert('error', err.message); }
   };
 
-  // --- FUNGSI API ---
-  async function kirimKeGudang(idRetur) {
-    const { data, error } = await supabaseClient.from('master_data').select('status_pengiriman, tgl_ed').eq('id_retur', idRetur).single();
-    if (error) throw error;
-    if (data.status_pengiriman !== 'Draft') throw new Error('Sudah dikirim.');
-    const statusED = getStatusED(data.tgl_ed);
-    if (statusED !== 'EXPIRED DATE') throw new Error('Hanya EXPIRED DATE yang bisa dikirim.');
-    const { error: updateError } = await supabaseClient.from('master_data').update({ status_pengiriman: 'Menunggu Dikirim ke Gudang Utama' }).eq('id_retur', idRetur);
-    if (updateError) throw updateError;
+  // ============================================================
+  // DASHBOARD GUDANG
+  // ============================================================
+
+  let isDashboardUnlocked = false;
+
+  // --- Password ---
+  $('btnMasukDashboard').addEventListener('click', async function() {
+    const pw = $('dashboardPassword').value;
+    const errBox = $('passwordError');
+    if (!pw) return;
+    this.disabled = true; this.textContent = 'Memeriksa...';
+    try {
+      const { data, error } = await supabaseClient.from('app_settings').select('value').eq('key', 'dashboard_password').single();
+      if (error) throw error;
+      if (data.value === pw) {
+        dashboardPassword = pw;
+        sessionStorage.setItem('dashboardPassword', pw);
+        unlockDashboard();
+      } else {
+        errBox.textContent = 'Kata sandi salah.';
+        errBox.classList.add('show');
+      }
+    } catch (err) { errBox.textContent = 'Error: ' + err.message; errBox.classList.add('show'); }
+    finally { this.disabled = false; this.textContent = 'Masuk'; }
+  });
+
+  $('dashboardPassword').addEventListener('keypress', e => { if (e.key === 'Enter') $('btnMasukDashboard').click(); });
+
+  function unlockDashboard() {
+    isDashboardUnlocked = true;
+    $('passwordGate').style.display = 'none';
+    $('dashboardContent').style.display = 'block';
+    initDashboard();
   }
 
-  async function batalkanLaporan(idRetur) {
-    const { data, error } = await supabaseClient.from('master_data').select('status_pengiriman').eq('id_retur', idRetur).single();
-    if (error) throw error;
-    if (data.status_pengiriman === 'Diterima Gudang Utama') throw new Error('Sudah diterima, tidak bisa dibatalkan.');
-    if (data.status_pengiriman === 'Dibatalkan') throw new Error('Sudah dibatalkan.');
-    const { error: updateError } = await supabaseClient.from('master_data').update({ status_pengiriman: 'Dibatalkan' }).eq('id_retur', idRetur);
-    if (updateError) throw updateError;
+  // --- Init Dashboard ---
+  const tabLoaded = { monitoring: false, retur: false, expired: false, arsip: false };
+  let currentTab = 'monitoring';
+
+  function setupSidebar() {
+    document.querySelectorAll('.sidebar-item').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const target = this.dataset.tab;
+        document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+        this.classList.add('active');
+        const panel = document.getElementById('tab-' + target);
+        if (panel) panel.style.display = 'block';
+        currentTab = target;
+        if (!tabLoaded[target]) {
+          tabLoaded[target] = true;
+          if (target === 'monitoring') loadMonitoring();
+          else if (target === 'retur') loadData();
+          else if (target === 'expired') loadExpired();
+          else if (target === 'arsip') loadArsip();
+        }
+      });
+    });
   }
 
-  async function updateJumlahRetur(idRetur, jumlahBaru) {
-    const { data, error } = await supabaseClient.from('master_data').select('harga_satuan_snapshot, status_pengiriman').eq('id_retur', idRetur).single();
-    if (error) throw error;
-    if (data.status_pengiriman === 'Diterima Gudang Utama') throw new Error('Tidak bisa diedit.');
-    const jumlah = Number(jumlahBaru);
-    if (jumlah <= 0) throw new Error('Jumlah harus > 0');
-    const nilaiBaru = jumlah * (data.harga_satuan_snapshot || 0);
-    const { error: updateError } = await supabaseClient.from('master_data').update({ jumlah: jumlah, nilai: nilaiBaru }).eq('id_retur', idRetur);
-    if (updateError) throw updateError;
+  function initDashboard() {
+    // Load units to all filter dropdowns
+    supabaseClient.from('unit').select('id, nama').order('nama').then(({ data }) => {
+      const selects = ['filterUnit', 'filterUnitArsip', 'filterUnitExpired', 'filterUnitMonitoring'];
+      selects.forEach(id => {
+        const sel = $(id);
+        if (!sel) return;
+        data.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nama; sel.appendChild(opt); });
+      });
+    });
+
+    // Load staff for modal penerimaan
+    supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif').then(({ data }) => {
+      staffList = data.map(r => ({ nama: r.nama, unit: unitMap[r.unit_id] || '' }));
+    });
+
+    setupSidebar();
+    setupDashboardEvents();
+
+    // Auto-load monitoring
+    tabLoaded.monitoring = true;
+    document.getElementById('tab-monitoring').style.display = 'block';
+    loadMonitoring();
   }
 
-  // --- TUTORIAL ---
-  $('btnTutorial').onclick = () => modalTutorial.style.display = 'flex';
-  $('btnTutupTutorial2').onclick = () => modalTutorial.style.display = 'none';
-  modalTutorial.addEventListener('click', e => { if (e.target === modalTutorial) modalTutorial.style.display = 'none'; });
+  // --- DASHBOARD EVENTS ---
+  function setupDashboardEvents() {
+    // Monitoring
+    $('btnLoadMonitoring').addEventListener('click', loadMonitoring);
+    $('filterNamaBarangMonitoring').addEventListener('input', applyClientFiltersMonitoring);
+    $('filterStatusBarangMonitoring').addEventListener('change', applyClientFiltersMonitoring);
+    // Retur
+    $('filterUnit').addEventListener('change', loadData);
+    $('filterStatus').addEventListener('change', loadData);
+    $('filterStart').addEventListener('change', loadData);
+    $('filterEnd').addEventListener('change', loadData);
+    $('btnRefresh').addEventListener('click', loadData);
+    $('btnResetFilter').addEventListener('click', function() {
+      $('filterUnit').value = 'SEMUA'; $('filterStatus').value = 'Menunggu Dikirim ke Gudang Utama';
+      $('filterStart').value = ''; $('filterEnd').value = '';
+      loadData();
+    });
+    // Expired
+    $('btnLoadExpired').addEventListener('click', loadExpired);
+    // Arsip
+    $('btnLoadArsip').addEventListener('click', loadArsip);
+    // Navigation
+    document.querySelectorAll('#navDashboardBack, #navDashboardBack2').forEach(el => {
+      el.addEventListener('click', e => {
+        e.preventDefault();
+        $('navInput').click();
+      });
+    });
+    // Export/Print buttons
+    $('btnCetakMonitoring').addEventListener('click', () => exportToExcel(allRowsMonitoring, 'Laporan Monitoring', 'Laporan_Monitoring'));
+    $('btnCetakMain').addEventListener('click', () => exportToExcel(allRowsMain, 'Laporan Retur Masuk', 'Laporan_Retur_Masuk'));
+    $('btnCetakExpired').addEventListener('click', () => exportToExcel(allRowsExpired, 'Laporan Expired Diterima', 'Laporan_Expired_Diterima'));
+    $('btnCetakArsip').addEventListener('click', () => exportToExcel(allRowsArsip, 'Laporan Arsip', 'Laporan_Arsip'));
+    $('btnPrintMonitoring').addEventListener('click', () => printPreview(allRowsMonitoring, 'Laporan Monitoring'));
+    $('btnPrintMain').addEventListener('click', () => printPreview(allRowsMain, 'Laporan Retur Masuk'));
+    $('btnPrintExpired').addEventListener('click', () => printPreview(allRowsExpired, 'Laporan Expired Diterima'));
+    $('btnPrintArsip').addEventListener('click', () => printPreview(allRowsArsip, 'Laporan Arsip'));
+  }
 
-  // --- NAVIGASI TAB ---
+  // --- PANEL MONITORING ---
+  async function loadMonitoring() {
+    const unit = $('filterUnitMonitoring').value;
+    const statusED = $('filterStatusEDMonitoring').value;
+    const start = $('filterStartMonitoring').value;
+    const end = $('filterEndMonitoring').value;
+
+    $('tableBodyMonitoring').innerHTML = '<tr><td colspan="12" style="text-align:center;padding:20px;">Memuat...</td></tr>';
+
+    try {
+      let query = supabaseClient.from('master_data').select('*, unit(nama)').not('status_pengiriman', 'in', '("Diterima Gudang Utama","Dibatalkan","Dimusnahkan")');
+      if (unit && unit !== 'SEMUA') query = query.eq('unit_id', parseInt(unit));
+      if (start) query = query.gte('tgl_retur', start);
+      if (end) query = query.lte('tgl_retur', end);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const rows = data.map(r => {
+        const ed = getStatusED(r.tgl_ed);
+        return { ...r, statusED: ed, unitNama: r.unit?.nama || '' };
+      });
+
+      // Filter statusED di client
+      let filtered = rows;
+      if (statusED && statusED !== 'SEMUA') filtered = filtered.filter(r => r.statusED === statusED);
+
+      serverRowsMonitoring = filtered;
+      applyClientFiltersMonitoring();
+      updateHeaderStats(rows);
+    } catch (err) { showAlert('error', 'Gagal memuat monitoring: ' + err.message, true); }
+  }
+
+  function applyClientFiltersMonitoring() {
+    const query = $('filterNamaBarangMonitoring').value.trim().toLowerCase();
+    const statusBarang = $('filterStatusBarangMonitoring').value;
+    let filtered = serverRowsMonitoring.filter(r => {
+      const matchNama = !query || (r.nama_barang||'').toLowerCase().includes(query);
+      const matchStatus = statusBarang === 'SEMUA' || r.status_barang === statusBarang;
+      return matchNama && matchStatus;
+    });
+    allRowsMonitoring = filtered;
+    currentPageMonitoring = 1;
+    renderPageMonitoring();
+  }
+
+  function renderPageMonitoring() {
+    const tbody = $('tableBodyMonitoring'); const empty = $('emptyStateMonitoring');
+    tbody.innerHTML = '';
+    $('totalNilaiMonitoring').textContent = formatRupiah(allRowsMonitoring.reduce((s,r) => s+(r.nilai||0), 0));
+    if (!allRowsMonitoring || allRowsMonitoring.length === 0) { empty.style.display = 'block'; $('paginationMonitoring').innerHTML = ''; return; }
+    empty.style.display = 'none';
+    const start = (currentPageMonitoring-1)*PAGE_SIZE;
+    const pageRows = allRowsMonitoring.slice(start, start+PAGE_SIZE);
+    pageRows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.id_retur}</td><td>${formatDate(r.tgl_retur)}</td><td>${r.unitNama||''}</td><td>${r.nama_barang}</td><td>${r.jumlah}</td><td>${r.no_batch||'-'}</td><td>${formatDate(r.tgl_ed)}</td><td>${statusBadge(r.statusED)}</td><td>${statusBarangBadge(r.status_barang)}</td><td>${r.nama_petugas}</td><td>${statusKirimBadge(r.status_pengiriman)}</td><td>${formatRupiah(r.nilai)}</td>`;
+      tbody.appendChild(tr);
+    });
+    renderPagination('paginationMonitoring', allRowsMonitoring.length, currentPageMonitoring, p => { currentPageMonitoring = p; renderPageMonitoring(); });
+  }
+
+  function updateHeaderStats(rows) {
+    const totalExpired = rows.filter(r => r.statusED === 'EXPIRED DATE').reduce((s,r) => s+(r.nilai||0), 0);
+    const totalNear3 = rows.filter(r => r.statusED === 'NEAR ED3').reduce((s,r) => s+(r.nilai||0), 0);
+    const totalNear6 = rows.filter(r => r.statusED === 'NEAR ED6').reduce((s,r) => s+(r.nilai||0), 0);
+    $('statNilaiExpired').textContent = formatRupiah(totalExpired);
+    $('statNilaiNear3').textContent = formatRupiah(totalNear3);
+    $('statNilaiNear6').textContent = formatRupiah(totalNear6);
+  }
+
+  // --- PANEL RETUR MASUK ---
+  async function loadData() {
+    const unit = $('filterUnit').value;
+    const status = $('filterStatus').value;
+    const start = $('filterStart').value;
+    const end = $('filterEnd').value;
+
+    $('tableBody').innerHTML = '<tr><td colspan="14" style="text-align:center;padding:20px;">Memuat...</td></tr>';
+
+    try {
+      let query = supabaseClient.from('master_data').select('*, unit(nama)').not('status_pengiriman', 'in', '("Draft","Dibatalkan","Dimusnahkan")');
+      if (unit && unit !== 'SEMUA') query = query.eq('unit_id', parseInt(unit));
+      if (status && status !== 'SEMUA') query = query.eq('status_pengiriman', status);
+      if (start) query = query.gte('tgl_retur', start);
+      if (end) query = query.lte('tgl_retur', end);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      serverRowsMain = data.map(r => ({ ...r, statusED: getStatusED(r.tgl_ed), unitNama: r.unit?.nama || '' }));
+      allRowsMain = serverRowsMain;
+      currentPageMain = 1;
+      updateStatsMain();
+      renderPageMain();
+    } catch (err) { showAlert('error', 'Gagal memuat data retur: ' + err.message, true); }
+  }
+
+  function updateStatsMain() {
+    const menunggu = allRowsMain.filter(r => r.status_pengiriman === 'Menunggu Dikirim ke Gudang Utama').length;
+    const diterima = allRowsMain.filter(r => r.status_pengiriman === 'Diterima Gudang Utama').length;
+    $('statMenunggu').textContent = menunggu;
+    $('statDiterima').textContent = diterima;
+    $('statTotal').textContent = allRowsMain.length;
+  }
+
+  function renderPageMain() {
+    const tbody = $('tableBody'); const empty = $('emptyState');
+    tbody.innerHTML = '';
+    $('totalNilaiMain').textContent = formatRupiah(allRowsMain.reduce((s,r) => s+(r.nilai||0), 0));
+    if (!allRowsMain || allRowsMain.length === 0) { empty.style.display = 'block'; $('paginationMain').innerHTML = ''; return; }
+    empty.style.display = 'none';
+    const start = (currentPageMain-1)*PAGE_SIZE;
+    const pageRows = allRowsMain.slice(start, start+PAGE_SIZE);
+    pageRows.forEach(r => {
+      const tr = document.createElement('tr');
+      const sudahDiterima = r.status_pengiriman === 'Diterima Gudang Utama';
+      tr.innerHTML = `<td>${r.id_retur}</td><td>${formatDate(r.tgl_retur)}</td><td>${r.unitNama||''}</td><td>${r.nama_barang}</td><td>${r.jumlah}</td><td>${r.no_batch||'-'}</td><td>${formatDate(r.tgl_ed)}</td><td>${statusBadge(r.statusED)}</td><td>${statusBarangBadge(r.status_barang)}</td><td>${r.nama_petugas}</td><td>${statusKirimBadge(r.status_pengiriman)}</td><td>${r.petugas_penerima || '-'}</td><td>${formatRupiah(r.nilai)}</td>
+        <td>${sudahDiterima ? '<span class="hint">' + formatDate(r.tgl_diterima) + '</span>' : `<button class="btn btn-sm" onclick="openTerimaModal('${r.id_retur}')">Tandai Diterima</button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+    renderPagination('paginationMain', allRowsMain.length, currentPageMain, p => { currentPageMain = p; renderPageMain(); });
+  }
+
+  // --- MODAL TERIMA ---
+  window.openTerimaModal = function(idRetur) {
+    currentIdRetur = idRetur;
+    $('modalIdRetur').textContent = idRetur;
+    $('searchNamaGudang').value = '';
+    $('namaPetugasGudang').value = '';
+    $('modalTerimaOverlay').classList.add('show');
+  };
+
+  $('searchNamaGudang').addEventListener('input', function() {
+    const q = this.value.trim().toLowerCase();
+    $('namaPetugasGudang').value = '';
+    if (!q) { $('listNamaGudang').classList.remove('show'); return; }
+    const matches = staffList.filter(s => s.nama.toLowerCase().includes(q)).slice(0, 8);
+    renderAutocomplete($('listNamaGudang'), matches,
+      item => item.nama + '<div class="sub-info">' + item.unit + '</div>',
+      item => { $('searchNamaGudang').value = item.nama; $('namaPetugasGudang').value = item.nama; }
+    );
+  });
+
+  $('btnBatalTerima').onclick = () => $('modalTerimaOverlay').classList.remove('show');
+  $('btnKonfirmasi').onclick = async function() {
+    const nama = $('namaPetugasGudang').value;
+    if (!nama) return showAlert('error', 'Pilih nama petugas.', true);
+    this.disabled = true; this.textContent = 'Menyimpan...';
+    try {
+      const { error } = await supabaseClient.from('master_data').update({
+        status_pengiriman: 'Diterima Gudang Utama',
+        tgl_diterima: new Date().toISOString().split('T')[0],
+        petugas_penerima: nama
+      }).eq('id_retur', currentIdRetur);
+      if (error) throw error;
+      showAlert('success', currentIdRetur + ' diterima.', true);
+      $('modalTerimaOverlay').classList.remove('show');
+      loadData();
+    } catch (err) { showAlert('error', err.message, true); }
+    finally { this.disabled = false; this.textContent = 'Tandai Diterima'; }
+  };
+
+  // --- PANEL EXPIRED DITERIMA (dengan MUSNAHKAN) ---
+  async function loadExpired() {
+    const unit = $('filterUnitExpired').value;
+    const statusFilter = $('filterStatusEDExpired').value;
+    const start = $('filterStartExpired').value;
+    const end = $('filterEndExpired').value;
+
+    $('tableBodyExpired').innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">Memuat...</td></tr>';
+
+    try {
+      let query = supabaseClient.from('master_data').select('*, unit(nama)').eq('status_pengiriman', 'Diterima Gudang Utama');
+      if (unit && unit !== 'SEMUA') query = query.eq('unit_id', parseInt(unit));
+      if (start) query = query.gte('tgl_diterima', start);
+      if (end) query = query.lte('tgl_diterima', end);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      let rows = data.map(r => ({ ...r, statusED: getStatusED(r.tgl_ed), unitNama: r.unit?.nama || '' }));
+      if (statusFilter && statusFilter !== 'SEMUA') rows = rows.filter(r => r.statusED === statusFilter);
+
+      allRowsExpired = rows;
+      currentPageExpired = 1;
+      const totalNilai = rows.reduce((s,r) => s+(r.nilai||0), 0);
+      $('statTotalNilaiExpiredDiterima').textContent = formatRupiah(totalNilai);
+      renderPageExpired();
+    } catch (err) { showAlert('error', 'Gagal memuat expired: ' + err.message, true); }
+  }
+
+  function renderPageExpired() {
+    const tbody = $('tableBodyExpired'); const empty = $('emptyStateExpired');
+    tbody.innerHTML = '';
+    $('totalNilaiExpiredFooter').textContent = formatRupiah(allRowsExpired.reduce((s,r) => s+(r.nilai||0), 0));
+    if (!allRowsExpired || allRowsExpired.length === 0) { empty.style.display = 'block'; $('paginationExpired').innerHTML = ''; return; }
+    empty.style.display = 'none';
+    const start = (currentPageExpired-1)*PAGE_SIZE;
+    const pageRows = allRowsExpired.slice(start, start+PAGE_SIZE);
+    pageRows.forEach(r => {
+      const tr = document.createElement('tr');
+      const isDimusnahkan = r.status_pengiriman === 'Dimusnahkan';
+      tr.innerHTML = `<td>${r.id_retur}</td><td>${formatDate(r.tgl_retur)}</td><td>${r.unitNama||''}</td><td>${r.nama_barang}</td><td>${r.jumlah}</td><td>${r.no_batch||'-'}</td><td>${formatDate(r.tgl_ed)}</td><td>${statusBadge(r.statusED)}</td><td>${r.nama_petugas}</td><td>${r.petugas_penerima||'-'}</td><td>${formatDate(r.tgl_diterima)}</td><td>${formatRupiah(r.nilai)}</td>
+        <td>${isDimusnahkan ? '<span class="hint">Sudah Dimusnahkan</span>' : `<button class="btn btn-sm" style="background:#B91C1C;" onclick="musnahkanHandler('${r.id_retur}')">🗑️ Musnahkan</button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+    renderPagination('paginationExpired', allRowsExpired.length, currentPageExpired, p => { currentPageExpired = p; renderPageExpired(); });
+  }
+
+  // --- MUSNAHKAN (DELETE DATA) ---
+  window.musnahkanHandler = async function(idRetur) {
+    if (!confirm('Tandai ' + idRetur + ' sebagai "Dimusnahkan"?\n\nData tidak akan terhapus, status berubah menjadi "Dimusnahkan" dan tidak tampil di laporan aktif.')) return;
+
+    try {
+      const { error } = await supabaseClient.from('master_data').update({ status_pengiriman: 'Dimusnahkan' }).eq('id_retur', idRetur);
+      if (error) throw error;
+      showAlert('success', idRetur + ' berhasil ditandai dimusnahkan.', true);
+      loadExpired();
+    } catch (err) { showAlert('error', err.message, true); }
+  };
+
+  // --- PANEL ARSIP ---
+  async function loadArsip() {
+    const unit = $('filterUnitArsip').value;
+    const start = $('filterStartArsip').value;
+    const end = $('filterEndArsip').value;
+
+    $('tableBodyArsip').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Memuat...</td></tr>';
+
+    try {
+      let query = supabaseClient.from('arsip_master_data').select('*, unit(nama)');
+      if (unit && unit !== 'SEMUA') query = query.eq('unit_id', parseInt(unit));
+      if (start) query = query.gte('tgl_retur', start);
+      if (end) query = query.lte('tgl_retur', end);
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      allRowsArsip = data.map(r => ({ ...r, unitNama: r.unit?.nama || '' }));
+      currentPageArsip = 1;
+      renderPageArsip();
+    } catch (err) { showAlert('error', 'Gagal memuat arsip: ' + err.message, true); }
+  }
+
+  function renderPageArsip() {
+    const tbody = $('tableBodyArsip'); const empty = $('emptyStateArsip');
+    tbody.innerHTML = '';
+    $('totalNilaiArsip').textContent = formatRupiah(allRowsArsip.reduce((s,r) => s+(r.nilai||0), 0));
+    if (!allRowsArsip || allRowsArsip.length === 0) { empty.style.display = 'block'; $('paginationArsip').innerHTML = ''; return; }
+    empty.style.display = 'none';
+    const start = (currentPageArsip-1)*PAGE_SIZE;
+    const pageRows = allRowsArsip.slice(start, start+PAGE_SIZE);
+    pageRows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.id_retur}</td><td>${formatDate(r.tgl_retur)}</td><td>${r.unitNama||''}</td><td>${r.nama_barang}</td><td>${r.jumlah}</td><td>${r.no_batch||'-'}</td><td>${formatRupiah(r.nilai)}</td><td>${r.petugas_penerima||'-'}</td><td>${formatDate(r.tgl_diterima)}</td>`;
+      tbody.appendChild(tr);
+    });
+    renderPagination('paginationArsip', allRowsArsip.length, currentPageArsip, p => { currentPageArsip = p; renderPageArsip(); });
+  }
+
+  // --- EXPORT EXCEL ---
+  function exportToExcel(rows, judul, namaFile) {
+    if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data untuk diekspor.', true);
+    const header = ['ID Retur', 'Tgl Retur', 'Unit', 'Barang', 'Jml', 'Batch', 'Tgl ED', 'Status ED', 'Nilai'];
+    const dataRows = rows.map(r => [r.id_retur, formatDate(r.tgl_retur), r.unitNama||'', r.nama_barang, r.jumlah, r.no_batch||'', formatDate(r.tgl_ed), r.statusED, r.nilai||0]);
+    const totalRow = ['', '', '', '', '', '', 'TOTAL NILAI', '', rows.reduce((s,r) => s+(r.nilai||0), 0)];
+    const wsData = [[judul], [], header, ...dataRows, totalRow];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = header.map(() => ({ wch: 16 }));
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length-1 } }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+    const today = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, namaFile + '_' + today + '.xlsx');
+  }
+
+  // --- PRINT PREVIEW ---
+  function printPreview(rows, judul) {
+    if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data untuk dicetak.', true);
+    const header = ['ID Retur', 'Tgl Retur', 'Unit', 'Barang', 'Jml', 'Batch', 'Tgl ED', 'Status ED', 'Nilai'];
+    const rowsHtml = rows.map(r => `<tr><td>${r.id_retur}</td><td>${formatDate(r.tgl_retur)}</td><td>${r.unitNama||''}</td><td>${r.nama_barang}</td><td>${r.jumlah}</td><td>${r.no_batch||''}</td><td>${formatDate(r.tgl_ed)}</td><td>${r.statusED}</td><td style="text-align:right;">${formatRupiah(r.nilai)}</td></tr>`).join('');
+    const total = rows.reduce((s,r) => s+(r.nilai||0), 0);
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${judul}</title><style>@page{size:landscape;margin:12mm;}body{font-family:Arial;font-size:11px;}h1{text-align:center;font-size:16px;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #999;padding:5px 7px;}th{background:#2E7D32;color:#fff;}</style></head><body><h1>${judul}</h1><p>Dicetak: ${new Date().toLocaleDateString('id-ID')}</p><table><thead><tr>${header.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rowsHtml}<tr style="font-weight:700;background:#E3F5EA;"><td colspan="7" style="text-align:right;">TOTAL NILAI</td><td></td><td style="text-align:right;">${formatRupiah(total)}</td></tr></tbody></table></body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return showAlert('error', 'Pop-up diblokir.', true);
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+  }
+
+  // ============================================================
+  // NAVIGASI TAB
+  // ============================================================
   $('navInput').addEventListener('click', e => {
     e.preventDefault();
     $('tabInput').style.display = 'block';
@@ -583,76 +1038,38 @@
     $('tabDashboard').style.display = 'block';
     document.querySelectorAll('.nav-pill a').forEach(a => a.classList.remove('active'));
     $('navDashboard').classList.add('active');
-    loadDashboard();
+    const saved = sessionStorage.getItem('dashboardPassword');
+    if (saved) {
+      dashboardPassword = saved;
+      // Coba unlock otomatis
+      supabaseClient.from('app_settings').select('value').eq('key', 'dashboard_password').single().then(({ data }) => {
+        if (data && data.value === saved) unlockDashboard();
+      });
+    }
   });
 
-  // --- DASHBOARD ---
-  async function loadDashboard() {
-    const container = $('tabDashboard');
-    container.innerHTML = `
-      <div class="card">
-        <h2>Dashboard Gudang Farmasi</h2>
-        <p class="sub">Fungsi dashboard sedang dalam pengembangan. Silakan gunakan aplikasi berbasis Google Apps Script atau tambahkan sendiri logikanya.</p>
-        <p>Untuk saat ini, data dapat diakses melalui tabel riwayat di tab Input Retur.</p>
-        <button class="btn" id="btnLoadDashboard">Muat Data Monitoring</button>
-        <div id="dashboardResult"></div>
-      </div>
-    `;
-    $('btnLoadDashboard').addEventListener('click', async function() {
-      this.disabled = true;
-      this.textContent = 'Memuat...';
-      try {
-        const { data, error } = await supabaseClient
-          .from('master_data')
-          .select('*, unit(nama)')
-          .not('status_pengiriman', 'in', '("Diterima Gudang Utama","Dibatalkan","Dimusnahkan")')
-          .order('created_at', { ascending: false })
-          .limit(100);
-        if (error) throw error;
-        const resultDiv = $('dashboardResult');
-        if (data.length === 0) {
-          resultDiv.innerHTML = '<p class="hint">Tidak ada data monitoring.</p>';
-        } else {
-          let html = '<div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Barang</th><th>Unit</th><th>Status ED</th><th>Status Kirim</th></tr></thead><tbody>';
-          data.forEach(r => {
-            const ed = getStatusED(r.tgl_ed);
-            html += `<tr><td>${r.id_retur}</td><td>${r.nama_barang}</td><td>${r.unit?.nama||''}</td><td>${statusBadge(ed)}</td><td>${statusKirimBadge(r.status_pengiriman)}</td></tr>`;
-          });
-          html += '</tbody></table></div>';
-          resultDiv.innerHTML = html;
-        }
-      } catch (err) {
-        showAlert('error', 'Gagal memuat dashboard: ' + err.message);
-      } finally {
-        this.disabled = false;
-        this.textContent = 'Muat Data Monitoring';
-      }
-    });
-  }
+  // --- TUTORIAL ---
+  $('btnTutorial').onclick = () => $('modalTutorialOverlay').classList.add('show');
+  $('btnTutupTutorial2').onclick = () => $('modalTutorialOverlay').classList.remove('show');
+  $('modalTutorialOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) $('modalTutorialOverlay').classList.remove('show'); });
 
-  // --- INIT ---
+  // ============================================================
+  // INIT
+  // ============================================================
   (async function init() {
     try {
       const units = await loadUnits();
-      const sel = filterUnitRiwayat;
+      const sel = $('filterUnitRiwayat');
       sel.innerHTML = '<option value="">-- Pilih --</option>';
-      units.forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.id;
-        opt.textContent = u.nama;
-        sel.appendChild(opt);
-      });
+      units.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nama; sel.appendChild(opt); });
       await loadStaff();
       await loadBarang();
       $('tglRetur').valueAsDate = new Date();
-      filterUnitRiwayat.addEventListener('change', function() {
-        loadRiwayat(parseInt(this.value));
-      });
-      searchRiwayat.addEventListener('input', applyRiwayatSortAndFilter);
-      sortRiwayat.addEventListener('change', applyRiwayatSortAndFilter);
-    } catch (err) {
-      showAlert('error', 'Gagal inisialisasi: ' + err.message);
-    }
+
+      $('filterUnitRiwayat').addEventListener('change', function() { loadRiwayat(parseInt(this.value)); });
+      $('searchRiwayat').addEventListener('input', applyRiwayatSort);
+      $('sortRiwayat').addEventListener('change', applyRiwayatSort);
+    } catch (err) { showAlert('error', 'Gagal inisialisasi: ' + err.message); }
   })();
 </script>
 </body>
