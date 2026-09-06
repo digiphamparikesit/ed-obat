@@ -9,7 +9,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="js/config.js"></script>
   <style>
-    /* ===== SIDEBAR STYLE (override jika perlu) ===== */
+    /* ===== SIDEBAR STYLE ===== */
     .dashboard-wrap { display: flex; min-height: calc(100vh - 60px); gap: 0; background: var(--bg); }
     .sidebar { width: 260px; flex-shrink: 0; background: var(--white); border-right: 1px solid var(--border); padding: 20px 0 20px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
     .sidebar .brand { padding: 0 16px 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
@@ -371,7 +371,7 @@
   let dashboardPassword = '';
   let currentIdRetur = null, currentRowNumber = null, currentEditIdRetur = null, currentEditRowNumber = null;
 
-  // --- LOAD DATA REFERENSI ---
+  // --- LOAD DATA REFERENSI (URUTAN PENTING) ---
   async function loadUnits() {
     const { data, error } = await supabaseClient.from('unit').select('id, nama').order('nama');
     if (error) { console.error('loadUnits error:', error); throw error; }
@@ -379,13 +379,24 @@
     console.log('Units loaded:', data.length);
     return data;
   }
+
   async function loadStaff() {
+    // Pastikan unitMap sudah terisi
+    if (Object.keys(unitMap).length === 0) {
+      console.warn('unitMap empty, loading units first...');
+      await loadUnits();
+    }
     const { data, error } = await supabaseClient.from('daftar_petugas').select('nama, unit_id').eq('status_akun', 'aktif');
     if (error) { console.error('loadStaff error:', error); throw error; }
-    staffList = data.map(r => ({ nama: r.nama, unit: unitMap[r.unit_id] || '' }));
+    // Map unit_id ke nama unit
+    staffList = data.map(r => {
+      const unitName = unitMap[r.unit_id] || 'Unit tidak dikenal (ID: ' + r.unit_id + ')';
+      return { nama: r.nama, unit: unitName };
+    });
     console.log('Staff loaded:', staffList.length);
     return staffList;
   }
+
   async function loadBarang() {
     const { data, error } = await supabaseClient.from('data_barang').select('kode_barang, nama_barang, harga_satuan');
     if (error) { console.error('loadBarang error:', error); throw error; }
@@ -413,7 +424,9 @@
     const q = this.value.trim().toLowerCase();
     $('namaPetugas').value = ''; $('unitAsal').value = '';
     if (!q) { $('listNama').classList.remove('show'); return; }
+    // Filter staffList
     const matches = staffList.filter(s => s.nama.toLowerCase().includes(q)).slice(0, 8);
+    console.log('Staff matches:', matches.length);
     renderAutocomplete($('listNama'), matches,
       item => item.nama + '<div class="sub-info">' + item.unit + '</div>',
       item => { $('searchNama').value = item.nama; $('namaPetugas').value = item.nama; $('unitAsal').value = item.unit; }
@@ -1067,17 +1080,31 @@
   // ============================================================
   (async function init() {
     try {
+      // 1. Load units dulu untuk mengisi unitMap
       const units = await loadUnits();
+      console.log('Units loaded, unitMap size:', Object.keys(unitMap).length);
+
+      // 2. Isi dropdown unit riwayat
       const sel = $('filterUnitRiwayat');
       sel.innerHTML = '<option value="">-- Pilih --</option>';
       units.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nama; sel.appendChild(opt); });
+
+      // 3. Load staff dan barang
       await loadStaff();
       await loadBarang();
+
+      // 4. Set default tgl retur
       $('tglRetur').valueAsDate = new Date();
 
+      // 5. Event listener
       $('filterUnitRiwayat').addEventListener('change', function() { loadRiwayat(parseInt(this.value)); });
       $('searchRiwayat').addEventListener('input', applyRiwayatSort);
       $('sortRiwayat').addEventListener('change', applyRiwayatSort);
+
+      console.log('Inisialisasi selesai. Staff:', staffList.length, 'Barang:', barangList.length);
+      if (staffList.length === 0) {
+        showAlert('warning', 'Data petugas kosong. Periksa tabel daftar_petugas di Supabase.');
+      }
     } catch (err) {
       console.error('Init error:', err);
       showAlert('error', 'Gagal inisialisasi: ' + err.message);
