@@ -1021,52 +1021,57 @@
   }
 
   async function tambahBarangHandler() {
-    const kode = $('newKodeBarang').value.trim();
-    const nama = $('newNamaBarang').value.trim();
-    const harga = Number($('newHargaSatuan').value) || 0;
-    if (!kode) return showAlert('error', 'Kode barang wajib diisi.', true);
-    if (!nama) return showAlert('error', 'Nama barang wajib diisi.', true);
-    if (allRowsBarang.find(b => b.kode_barang === kode)) return showAlert('error', 'Kode barang "' + kode + '" sudah ada.', true);
+  const kode = $('newKodeBarang').value.trim();
+  const nama = $('newNamaBarang').value.trim();
+  const harga = Number($('newHargaSatuan').value) || 0;
 
-    const btn = $('btnTambahBarang');
-    btn.disabled = true; btn.textContent = 'Menyimpan...';
-    try {
-      const { error } = await supabaseClient.from('data_barang').insert([{ kode_barang: kode, nama_barang: nama, harga_satuan: harga }]);
-      if (error) throw error;
-      showAlert('success', 'Barang "' + nama + '" berhasil ditambahkan.', true);
-      $('newKodeBarang').value = ''; $('newNamaBarang').value = ''; $('newHargaSatuan').value = '';
-      await loadBarang();
-      await loadBarangManagement();
-    } catch (err) { showAlert('error', 'Gagal menambah barang: ' + err.message, true); }
-    finally { btn.disabled = false; btn.textContent = 'Tambah Barang'; }
+  if (!kode) return showAlert('error', 'Kode barang wajib diisi.', true);
+  if (!nama) return showAlert('error', 'Nama barang wajib diisi.', true);
+
+  const btn = $('btnTambahBarang');
+  btn.disabled = true; btn.textContent = 'Memeriksa...';
+
+  try {
+    // Cek langsung ke Supabase, bukan cuma dari cache lokal
+    const { data: existing, error: checkError } = await supabaseClient
+      .from('data_barang')
+      .select('kode_barang, nama_barang')
+      .eq('kode_barang', kode)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    if (existing) {
+      btn.disabled = false; btn.textContent = 'Tambah Barang';
+      return showAlert('error',
+        'Kode barang "' + kode + '" sudah dipakai oleh: "' + existing.nama_barang + '". Gunakan kode lain.',
+        true
+      );
+    }
+
+    // Lanjut insert
+    btn.textContent = 'Menyimpan...';
+    const { error } = await supabaseClient.from('data_barang').insert([{
+      kode_barang: kode,
+      nama_barang: nama,
+      harga_satuan: harga
+    }]);
+    if (error) throw error;
+
+    showAlert('success', 'Barang "' + nama + '" berhasil ditambahkan.', true);
+    $('newKodeBarang').value = '';
+    $('newNamaBarang').value = '';
+    $('newHargaSatuan').value = '';
+
+    await loadBarang();           // refresh untuk autocomplete
+    await loadBarangManagement(); // refresh tabel
+  } catch (err) {
+    showAlert('error', 'Gagal menambah barang: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Tambah Barang';
   }
-
-  window.openEditBarangModal = function(kode) {
-    const b = allRowsBarang.find(x => x.kode_barang === kode);
-    if (!b) return showAlert('error', 'Data barang tidak ditemukan.', true);
-    currentEditKodeBarang = kode;
-    $('editKodeBarangLabel').textContent = kode;
-    $('editNamaBarangKelola').value = b.nama_barang;
-    $('editHargaSatuanKelola').value = b.harga_satuan;
-    $('modalEditBarangOverlay').classList.add('show');
-  };
-
-  async function simpanEditBarangHandler() {
-    const nama = $('editNamaBarangKelola').value.trim();
-    const harga = Number($('editHargaSatuanKelola').value) || 0;
-    if (!nama) return showAlert('error', 'Nama barang wajib diisi.', true);
-    const btn = $('btnSimpanEditBarang');
-    btn.disabled = true; btn.textContent = 'Menyimpan...';
-    try {
-      const { error } = await supabaseClient.from('data_barang').update({ nama_barang: nama, harga_satuan: harga }).eq('kode_barang', currentEditKodeBarang);
-      if (error) throw error;
-      showAlert('success', 'Data barang berhasil diupdate.', true);
-      $('modalEditBarangOverlay').classList.remove('show');
-      await loadBarang();
-      await loadBarangManagement();
-    } catch (err) { showAlert('error', 'Gagal mengupdate barang: ' + err.message, true); }
-    finally { btn.disabled = false; btn.textContent = 'Simpan'; }
-  }
+}
 
   window.hapusBarangHandler = async function(kode, nama) {
     if (!confirm('Hapus barang "' + nama + '" (Kode: ' + kode + ')?')) return;
