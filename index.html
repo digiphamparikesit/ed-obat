@@ -32,6 +32,25 @@
     .modal-overlay.show { display: flex; }
     .modal-overlay .card { max-width: 380px; width: 100%; margin: 0; }
     @media (max-width: 860px) { .dashboard-wrap { flex-direction: column; } .sidebar { width: 100%; height: auto; position: relative; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { display: none; } .sidebar-item { width: auto; padding: 8px 14px; font-size: 12.5px; } .sidebar .nav-bottom { display: none; } .main-content { padding: 16px; } }
+    /* Tab toggle riwayat */
+    .riwayat-tab-btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px 14px;
+      cursor: pointer;
+      border: none;
+      border-bottom: 3px solid transparent;
+      border-radius: 6px 6px 0 0;
+      color: var(--muted);
+      background: transparent;
+      transition: all .15s;
+    }
+    .riwayat-tab-btn.active {
+      color: var(--green-900);
+      background: var(--white);
+      border-bottom-color: var(--green-700);
+    }
   </style>
 </head>
 <body>
@@ -104,6 +123,13 @@
         <div class="riwayat-header-fixed">
           <h2>Riwayat Retur & Edit Jumlah</h2>
           <p class="sub">Pilih unit untuk melihat laporan. Jumlah bisa diedit selama status <strong>Draft</strong> atau <strong>Menunggu Dikirim</strong>.</p>
+
+          <!-- Tab toggle -->
+          <div style="display:flex; gap:6px; margin-bottom:14px; border-bottom:2px solid var(--border);">
+            <button id="tabRiwayatAktif" class="riwayat-tab-btn active">📋 Riwayat Aktif</button>
+            <button id="tabRiwayatDiterima" class="riwayat-tab-btn">✅ Sudah Diterima Gudang</button>
+          </div>
+
           <div class="field" style="max-width:320px;">
             <label>Pilih Gudang/Unit</label>
             <select id="filterUnitRiwayat"><option value="">-- Pilih --</option></select>
@@ -125,16 +151,33 @@
             </div>
           </div>
         </div>
+
         <div class="riwayat-scroll-body">
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Nama Barang</th><th>Jml</th><th>No.Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Kirim</th><th>Aksi</th></tr></thead>
-              <tbody id="tableBodyRiwayat"></tbody>
-            </table>
-            <div id="emptyStateRiwayat" class="empty-state" style="display:none;"><div class="icon">📋</div><div>Belum pilih unit atau belum ada data.</div></div>
+          <!-- Panel Riwayat Aktif -->
+          <div id="riwayatAktifPanel">
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Nama Barang</th><th>Jml</th><th>No.Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Kirim</th><th>Aksi</th></tr></thead>
+                <tbody id="tableBodyRiwayat"></tbody>
+              </table>
+              <div id="emptyStateRiwayat" class="empty-state" style="display:none;"><div class="icon">📋</div><div>Belum pilih unit atau belum ada data.</div></div>
+            </div>
+          </div>
+
+          <!-- Panel Riwayat Sudah Diterima -->
+          <div id="riwayatDiterimaPanel" style="display:none;">
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Nama Barang</th><th>Jml</th><th>No.Batch</th><th>Tgl ED</th><th>Status ED</th><th>Tgl Diterima</th><th>Diterima Oleh</th></tr></thead>
+                <tbody id="tableBodyRiwayatDiterima"></tbody>
+              </table>
+              <div id="emptyStateRiwayatDiterima" class="empty-state" style="display:none;"><div class="icon">✅</div><div>Belum ada barang yang sudah diterima gudang untuk unit ini.</div></div>
+            </div>
           </div>
         </div>
+
         <div id="paginationRiwayat" class="pagination"></div>
+        <div id="paginationRiwayatDiterima" class="pagination" style="display:none;"></div>
       </div>
     </div>
   </div>
@@ -187,7 +230,6 @@
             <div class="stat-box" style="border-color:var(--warn6);"><div class="num" id="statNilaiNear6" style="color:#B8860B;">-</div><div class="lbl">Total Nilai NEAR ED6</div></div>
           </div>
 
-          <!-- Panel Monitoring -->
           <div class="tab-panel" id="tab-monitoring">
             <h2>Monitoring Semua Barang</h2>
             <p class="sub">Semua barang yang belum diterima gudang (termasuk Draft). Untuk pantauan dini.</p>
@@ -205,7 +247,6 @@
             <div id="paginationMonitoring" class="pagination"></div>
           </div>
 
-          <!-- Panel Retur Masuk -->
           <div class="tab-panel" id="tab-retur" style="display:none;">
             <h2>Data Retur Masuk dari Seluruh Unit</h2>
             <p class="sub">Tandai "Diterima" setelah barang fisik sampai di Gudang.</p>
@@ -222,7 +263,6 @@
             <div id="paginationMain" class="pagination"></div>
           </div>
 
-          <!-- Panel Expired Diterima -->
           <div class="tab-panel" id="tab-expired" style="display:none;">
             <h2>Laporan Barang Expired yang Sudah Diterima</h2>
             <p class="sub">Barang yang sudah diterima Gudang dan status ED = EXPIRED DATE. Klik <strong>🗑️ Musnahkan</strong> untuk menandai barang sudah dimusnahkan.</p>
@@ -239,7 +279,6 @@
             <div id="paginationExpired" class="pagination"></div>
           </div>
 
-          <!-- Panel Arsip -->
           <div class="tab-panel" id="tab-arsip" style="display:none;">
             <h2>Arsip Riwayat Lama</h2>
             <p class="sub">Data yang sudah diterima &gt; 90 hari, dipindah ke sini.</p>
@@ -254,7 +293,6 @@
             <div id="paginationArsip" class="pagination"></div>
           </div>
 
-          <!-- Panel Kelola Data Barang -->
           <div class="tab-panel" id="tab-barang" style="display:none;">
             <h2>Kelola Data Barang</h2>
             <p class="sub">Tambah, edit, atau hapus master data barang (obat/BMHP). Menu ini khusus Gudang Farmasi.</p>
@@ -340,8 +378,8 @@
     <p>Draft → Menunggu Dikirim → Diterima Gudang → Dimusnahkan / Dibatalkan.</p>
     <h3>3️⃣ Dashboard Gudang</h3>
     <p>Login dengan password untuk melihat monitoring, retur masuk, laporan expired, arsip, dan kelola data barang.</p>
-    <h3>4️⃣ Kelola Data Barang</h3>
-    <p>Menu ini khusus Gudang Farmasi untuk menambahkan barang baru, mengedit nama/harga, atau menghapus barang yang belum pernah dipakai transaksi.</p>
+    <h3>4️⃣ Tab Riwayat</h3>
+    <p><strong>Riwayat Aktif</strong>: barang yang belum diterima gudang.<br><strong>Sudah Diterima Gudang</strong>: barang yang sudah diterima gudang (dikelompokkan per unit).</p>
     <button class="btn" id="btnTutupTutorial2" style="margin-top:16px;">Tutup</button>
   </div>
 </div>
@@ -394,8 +432,9 @@
     setTimeout(() => box.classList.remove('show'), 6000);
   }
 
-  let staffList = [], barangList = [], unitMap = {};
+  let staffList = [], unitMap = {};
   let rawRowsRiwayat = [], allRowsRiwayat = [], currentPageRiwayat = 1;
+  let allRowsRiwayatDiterima = [], currentPageRiwayatDiterima = 1;
   let serverRowsMain = [], allRowsMain = [], currentPageMain = 1;
   let serverRowsMonitoring = [], allRowsMonitoring = [], currentPageMonitoring = 1;
   let allRowsExpired = [], currentPageExpired = 1;
@@ -417,21 +456,13 @@
       if (Object.keys(unitMap).length === 0) await loadUnits();
       const { data, error } = await supabaseClient.from('daftar_petugas').select('nama, unit_id');
       if (error) throw error;
-      if (!data || data.length === 0) {
-        staffList = [];
-        return [];
-      }
+      if (!data || data.length === 0) { staffList = []; return []; }
       staffList = data.map(r => ({ nama: r.nama, unit: unitMap[r.unit_id] || 'Unit tidak dikenal' }));
       return staffList;
     } catch (err) {
       staffList = [];
       return [];
     }
-  }
-
-  async function loadBarang() {
-    // Autocomplete barang di form input pakai server-side, jadi fungsi ini hanya placeholder
-    return barangList;
   }
 
   function renderAutocomplete(container, items, labelFn, onSelect) {
@@ -459,7 +490,7 @@
     );
   });
 
-  // Autocomplete Nama Barang (SERVER-SIDE - bisa temukan semua barang termasuk >1000)
+  // Autocomplete Nama Barang (server-side)
   let searchBarangTimer = null;
   $('searchBarang').addEventListener('input', function() {
     const q = this.value.trim();
@@ -517,7 +548,11 @@
       $('returForm').reset();
       $('unitAsal').value = ''; $('hargaSatuanDisplay').value = '';
       $('tglRetur').valueAsDate = new Date();
-      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
+      const currentUnit = parseInt($('filterUnitRiwayat').value);
+      if (currentUnit) {
+        loadRiwayat(currentUnit);
+        loadRiwayatDiterima(currentUnit);
+      }
     } catch (err) { showAlert('error', err.message); }
     finally { btn.disabled = false; btn.textContent = 'Kirim Laporan Retur'; }
   });
@@ -538,11 +573,18 @@
     return { idRetur };
   }
 
+  // ============ RIWAYAT AKTIF (belum diterima gudang) ============
   async function loadRiwayat(unitId) {
     if (!unitId) { rawRowsRiwayat = []; allRowsRiwayat = []; renderRiwayat(); return; }
     $('tableBodyRiwayat').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Memuat...</td></tr>';
     try {
-      const { data, error } = await supabaseClient.from('master_data').select('*').eq('unit_id', unitId).order('created_at', { ascending: false }).limit(1000);
+      const { data, error } = await supabaseClient
+        .from('master_data')
+        .select('*')
+        .eq('unit_id', unitId)
+        .not('status_pengiriman', 'in', '("Diterima Gudang Utama","Dimusnahkan","Dibatalkan")')
+        .order('created_at', { ascending: false })
+        .limit(1000);
       if (error) throw error;
       rawRowsRiwayat = data.map(r => {
         const statusED = getStatusED(r.tgl_ed);
@@ -576,8 +618,7 @@
     if (!allRowsRiwayat || allRowsRiwayat.length === 0) { empty.style.display = 'block'; $('paginationRiwayat').innerHTML = ''; return; }
     empty.style.display = 'none';
     const start = (currentPageRiwayat-1)*PAGE_SIZE;
-    const pageRows = allRowsRiwayat.slice(start, start+PAGE_SIZE);
-    pageRows.forEach(r => {
+    allRowsRiwayat.slice(start, start+PAGE_SIZE).forEach(r => {
       const tr = document.createElement('tr');
       let aksi = '';
       if (r.bisaDikirim) aksi += `<button class="btn btn-sm" style="background:var(--danger);margin-right:6px;" onclick="kirimKeGudangHandler('${r.id_retur}')">Kirim</button>`;
@@ -588,6 +629,70 @@
       tbody.appendChild(tr);
     });
     renderPagination('paginationRiwayat', allRowsRiwayat.length, currentPageRiwayat, p => { currentPageRiwayat = p; renderRiwayat(); });
+  }
+
+  // ============ RIWAYAT SUDAH DITERIMA GUDANG ============
+  async function loadRiwayatDiterima(unitId) {
+    if (!unitId) { allRowsRiwayatDiterima = []; renderRiwayatDiterima(); return; }
+    $('tableBodyRiwayatDiterima').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Memuat...</td></tr>';
+    try {
+      const { data, error } = await supabaseClient
+        .from('master_data')
+        .select('*')
+        .eq('unit_id', unitId)
+        .eq('status_pengiriman', 'Diterima Gudang Utama')
+        .order('tgl_diterima', { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      allRowsRiwayatDiterima = data.map(r => ({ ...r, statusED: getStatusED(r.tgl_ed) }));
+      currentPageRiwayatDiterima = 1;
+      renderRiwayatDiterima();
+    } catch (err) {
+      showAlert('error', 'Gagal memuat riwayat diterima: ' + err.message);
+      allRowsRiwayatDiterima = [];
+      renderRiwayatDiterima();
+    }
+  }
+
+  function renderRiwayatDiterima() {
+    const tbody = $('tableBodyRiwayatDiterima');
+    const empty = $('emptyStateRiwayatDiterima');
+    tbody.innerHTML = '';
+    if (!allRowsRiwayatDiterima || allRowsRiwayatDiterima.length === 0) {
+      empty.style.display = 'block';
+      $('paginationRiwayatDiterima').innerHTML = '';
+      return;
+    }
+    empty.style.display = 'none';
+    const start = (currentPageRiwayatDiterima - 1) * PAGE_SIZE;
+    allRowsRiwayatDiterima.slice(start, start + PAGE_SIZE).forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.id_retur}</td>
+        <td>${formatDate(r.tgl_retur)}</td>
+        <td>${r.nama_barang}</td>
+        <td>${r.jumlah}</td>
+        <td>${r.no_batch||'-'}</td>
+        <td>${formatDate(r.tgl_ed)}</td>
+        <td>${statusBadge(r.statusED)}</td>
+        <td>${formatDate(r.tgl_diterima)}</td>
+        <td>${r.petugas_penerima||'-'}</td>`;
+      tbody.appendChild(tr);
+    });
+    // Pagination
+    const container = $('paginationRiwayatDiterima');
+    const total = allRowsRiwayatDiterima.length;
+    const pages = Math.ceil(total / PAGE_SIZE);
+    container.innerHTML = '';
+    if (pages > 1) {
+      const prev = document.createElement('button'); prev.textContent = '‹ Sebelumnya'; prev.disabled = currentPageRiwayatDiterima === 1;
+      prev.onclick = () => { currentPageRiwayatDiterima--; renderRiwayatDiterima(); };
+      const info = document.createElement('span'); info.className = 'page-info';
+      info.textContent = `Halaman ${currentPageRiwayatDiterima} dari ${pages} (${total} data)`;
+      const next = document.createElement('button'); next.textContent = 'Berikutnya ›'; next.disabled = currentPageRiwayatDiterima === pages;
+      next.onclick = () => { currentPageRiwayatDiterima++; renderRiwayatDiterima(); };
+      container.append(prev, info, next);
+    }
   }
 
   function renderPagination(id, total, current, onChange) {
@@ -609,7 +714,8 @@
       if (getStatusED(data.tgl_ed) !== 'EXPIRED DATE') throw new Error('Hanya EXPIRED DATE yang bisa dikirim.');
       await supabaseClient.from('master_data').update({ status_pengiriman: 'Menunggu Dikirim ke Gudang Utama' }).eq('id_retur', idRetur);
       showAlert('success', idRetur + ' dikirim.');
-      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
+      const unitId = parseInt($('filterUnitRiwayat').value);
+      if (unitId) { loadRiwayat(unitId); loadRiwayatDiterima(unitId); }
     } catch (err) { showAlert('error', err.message); }
   };
 
@@ -622,7 +728,8 @@
       if (data.status_pengiriman === 'Dibatalkan') throw new Error('Sudah dibatalkan.');
       await supabaseClient.from('master_data').update({ status_pengiriman: 'Dibatalkan' }).eq('id_retur', idRetur);
       showAlert('success', idRetur + ' dibatalkan.');
-      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
+      const unitId = parseInt($('filterUnitRiwayat').value);
+      if (unitId) loadRiwayat(unitId);
     } catch (err) { showAlert('error', err.message); }
   };
 
@@ -643,7 +750,8 @@
       await supabaseClient.from('master_data').update({ jumlah: Number(jumlah), nilai: nilai }).eq('id_retur', currentEditIdRetur);
       showAlert('success', 'Jumlah diubah.');
       $('modalEditOverlay').classList.remove('show');
-      if ($('filterUnitRiwayat').value) loadRiwayat(parseInt($('filterUnitRiwayat').value));
+      const unitId = parseInt($('filterUnitRiwayat').value);
+      if (unitId) loadRiwayat(unitId);
     } catch (err) { showAlert('error', err.message); }
   };
 
@@ -758,7 +866,6 @@
     $('btnCetakBarang').addEventListener('click', () => exportToExcelBarang(allRowsBarang));
     $('btnBatalEditBarang').onclick = () => $('modalEditBarangOverlay').classList.remove('show');
     $('btnSimpanEditBarang').onclick = simpanEditBarangHandler;
-    // Filter barang dengan debounce (server-side search)
     let filterBarangTimer = null;
     $('filterNamaBarangKelola').addEventListener('input', function() {
       clearTimeout(filterBarangTimer);
@@ -994,21 +1101,15 @@
       const BATCH_SIZE = 1000;
       let from = 0;
       let hasMore = true;
-
       while (hasMore) {
         let query = supabaseClient
           .from('data_barang')
           .select('kode_barang, nama_barang, harga_satuan')
           .order('nama_barang', { ascending: true })
           .range(from, from + BATCH_SIZE - 1);
-
-        if (q) {
-          query = query.or(`nama_barang.ilike.%${q}%,kode_barang.ilike.%${q}%`);
-        }
-
+        if (q) query = query.or(`nama_barang.ilike.%${q}%,kode_barang.ilike.%${q}%`);
         const { data, error } = await query;
         if (error) throw error;
-
         if (!data || data.length === 0) {
           hasMore = false;
         } else {
@@ -1018,11 +1119,9 @@
         }
         if (from > 20000) hasMore = false;
       }
-
       allRowsBarang = allData;
       currentPageBarang = 1;
       renderPageBarang(allRowsBarang);
-      console.log('Total barang loaded:', allRowsBarang.length);
     } catch (err) {
       showAlert('error', 'Gagal memuat data barang: ' + err.message, true);
       $('tableBodyBarang').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:red;">Error: ' + err.message + '</td></tr>';
@@ -1032,11 +1131,7 @@
   function renderPageBarang(rows) {
     const tbody = $('tableBodyBarang'); const empty = $('emptyStateBarang');
     tbody.innerHTML = '';
-    if (!rows || rows.length === 0) {
-      empty.style.display = 'block';
-      $('paginationBarang').innerHTML = '';
-      return;
-    }
+    if (!rows || rows.length === 0) { empty.style.display = 'block'; $('paginationBarang').innerHTML = ''; return; }
     empty.style.display = 'none';
     const start = (currentPageBarang - 1) * PAGE_SIZE;
     rows.slice(start, start + PAGE_SIZE).forEach(b => {
@@ -1069,44 +1164,28 @@
     const kode = $('newKodeBarang').value.trim();
     const nama = $('newNamaBarang').value.trim();
     const harga = Number($('newHargaSatuan').value) || 0;
-
     if (!kode) return showAlert('error', 'Kode barang wajib diisi.', true);
     if (!nama) return showAlert('error', 'Nama barang wajib diisi.', true);
-
     const btn = $('btnTambahBarang');
     btn.disabled = true; btn.textContent = 'Memeriksa...';
-
     try {
       const { data: existing, error: checkError } = await supabaseClient
-        .from('data_barang')
-        .select('kode_barang, nama_barang')
-        .eq('kode_barang', kode)
-        .maybeSingle();
-
+        .from('data_barang').select('kode_barang, nama_barang').eq('kode_barang', kode).maybeSingle();
       if (checkError) throw checkError;
-
       if (existing) {
         btn.disabled = false; btn.textContent = 'Tambah Barang';
-        return showAlert('error', 'Kode barang "' + kode + '" sudah dipakai oleh: "' + existing.nama_barang + '". Gunakan kode lain.', true);
+        return showAlert('error', 'Kode barang "' + kode + '" sudah dipakai oleh: "' + existing.nama_barang + '".', true);
       }
-
       btn.textContent = 'Menyimpan...';
-      const { error } = await supabaseClient.from('data_barang').insert([{
-        kode_barang: kode, nama_barang: nama, harga_satuan: harga
-      }]);
+      const { error } = await supabaseClient.from('data_barang').insert([{ kode_barang: kode, nama_barang: nama, harga_satuan: harga }]);
       if (error) throw error;
-
       showAlert('success', 'Barang "' + nama + '" berhasil ditambahkan.', true);
-      $('newKodeBarang').value = '';
-      $('newNamaBarang').value = '';
-      $('newHargaSatuan').value = '';
-
+      $('newKodeBarang').value = ''; $('newNamaBarang').value = ''; $('newHargaSatuan').value = '';
       await loadBarangManagement();
     } catch (err) {
       showAlert('error', 'Gagal menambah barang: ' + err.message, true);
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Tambah Barang';
+      btn.disabled = false; btn.textContent = 'Tambah Barang';
     }
   }
 
@@ -1127,9 +1206,7 @@
     const btn = $('btnSimpanEditBarang');
     btn.disabled = true; btn.textContent = 'Menyimpan...';
     try {
-      const { error } = await supabaseClient.from('data_barang')
-        .update({ nama_barang: nama, harga_satuan: harga })
-        .eq('kode_barang', currentEditKodeBarang);
+      const { error } = await supabaseClient.from('data_barang').update({ nama_barang: nama, harga_satuan: harga }).eq('kode_barang', currentEditKodeBarang);
       if (error) throw error;
       showAlert('success', 'Data barang berhasil diupdate.', true);
       $('modalEditBarangOverlay').classList.remove('show');
@@ -1230,7 +1307,39 @@
       units.forEach(u => { const opt = document.createElement('option'); opt.value = u.id; opt.textContent = u.nama; sel.appendChild(opt); });
       await loadStaff();
       $('tglRetur').valueAsDate = new Date();
-      $('filterUnitRiwayat').addEventListener('change', function() { loadRiwayat(parseInt(this.value)); });
+
+      // Event listener unit: load kedua tab
+      $('filterUnitRiwayat').addEventListener('change', function() {
+        const unitId = parseInt(this.value);
+        loadRiwayat(unitId);
+        // Kalau tab diterima sedang aktif, langsung muat juga
+        if ($('riwayatDiterimaPanel').style.display !== 'none') {
+          loadRiwayatDiterima(unitId);
+        }
+      });
+
+      // Event listener tab toggle
+      $('tabRiwayatAktif').addEventListener('click', function() {
+        this.classList.add('active');
+        $('tabRiwayatDiterima').classList.remove('active');
+        $('riwayatAktifPanel').style.display = 'block';
+        $('riwayatDiterimaPanel').style.display = 'none';
+        $('paginationRiwayat').style.display = 'flex';
+        $('paginationRiwayatDiterima').style.display = 'none';
+      });
+
+      $('tabRiwayatDiterima').addEventListener('click', function() {
+        this.classList.add('active');
+        $('tabRiwayatAktif').classList.remove('active');
+        $('riwayatAktifPanel').style.display = 'none';
+        $('riwayatDiterimaPanel').style.display = 'block';
+        $('paginationRiwayat').style.display = 'none';
+        $('paginationRiwayatDiterima').style.display = 'flex';
+        const unitId = parseInt($('filterUnitRiwayat').value);
+        if (unitId) loadRiwayatDiterima(unitId);
+      });
+
+      // Search & sort (hanya untuk tab aktif)
       $('searchRiwayat').addEventListener('input', applyRiwayatSort);
       $('sortRiwayat').addEventListener('change', applyRiwayatSort);
     } catch (err) {
