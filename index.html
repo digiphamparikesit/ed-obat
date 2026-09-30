@@ -32,25 +32,9 @@
     .modal-overlay.show { display: flex; }
     .modal-overlay .card { max-width: 380px; width: 100%; margin: 0; }
     @media (max-width: 860px) { .dashboard-wrap { flex-direction: column; } .sidebar { width: 100%; height: auto; position: relative; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { display: none; } .sidebar-item { width: auto; padding: 8px 14px; font-size: 12.5px; } .sidebar .nav-bottom { display: none; } .main-content { padding: 16px; } }
-    /* Tab toggle riwayat */
-    .riwayat-tab-btn {
-      font-family: 'Inter', sans-serif;
-      font-size: 12.5px;
-      font-weight: 600;
-      padding: 8px 14px;
-      cursor: pointer;
-      border: none;
-      border-bottom: 3px solid transparent;
-      border-radius: 6px 6px 0 0;
-      color: var(--muted);
-      background: transparent;
-      transition: all .15s;
-    }
-    .riwayat-tab-btn.active {
-      color: var(--green-900);
-      background: var(--white);
-      border-bottom-color: var(--green-700);
-    }
+    .riwayat-tab-btn { font-family: 'Inter', sans-serif; font-size: 12.5px; font-weight: 600; padding: 8px 14px; cursor: pointer; border: none; border-bottom: 3px solid transparent; border-radius: 6px 6px 0 0; color: var(--muted); background: transparent; transition: all .15s; }
+    .riwayat-tab-btn.active { color: var(--green-900); background: var(--white); border-bottom-color: var(--green-700); }
+    .riwayat-toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
@@ -150,10 +134,19 @@
               </select>
             </div>
           </div>
+
+          <!-- Toolbar: Excel & Cetak untuk masing-masing tab -->
+          <div class="riwayat-toolbar" id="toolbarRiwayatAktif">
+            <button class="btn btn-sm" id="btnCetakRiwayatAktif" style="width:auto;background:#1D6F42;">📊 Excel — Riwayat Aktif</button>
+            <button class="btn btn-sm" id="btnPrintRiwayatAktif" style="width:auto;background:var(--green-700);">🖨️ Cetak — Riwayat Aktif</button>
+          </div>
+          <div class="riwayat-toolbar" id="toolbarRiwayatDiterima" style="display:none;">
+            <button class="btn btn-sm" id="btnCetakRiwayatDiterima" style="width:auto;background:#1D6F42;">📊 Excel — Sudah Diterima</button>
+            <button class="btn btn-sm" id="btnPrintRiwayatDiterima" style="width:auto;background:var(--green-700);">🖨️ Cetak — Sudah Diterima</button>
+          </div>
         </div>
 
         <div class="riwayat-scroll-body">
-          <!-- Panel Riwayat Aktif -->
           <div id="riwayatAktifPanel">
             <div class="table-scroll">
               <table>
@@ -164,7 +157,6 @@
             </div>
           </div>
 
-          <!-- Panel Riwayat Sudah Diterima -->
           <div id="riwayatDiterimaPanel" style="display:none;">
             <div class="table-scroll">
               <table>
@@ -549,10 +541,7 @@
       $('unitAsal').value = ''; $('hargaSatuanDisplay').value = '';
       $('tglRetur').valueAsDate = new Date();
       const currentUnit = parseInt($('filterUnitRiwayat').value);
-      if (currentUnit) {
-        loadRiwayat(currentUnit);
-        loadRiwayatDiterima(currentUnit);
-      }
+      if (currentUnit) { loadRiwayat(currentUnit); loadRiwayatDiterima(currentUnit); }
     } catch (err) { showAlert('error', err.message); }
     finally { btn.disabled = false; btn.textContent = 'Kirim Laporan Retur'; }
   });
@@ -573,18 +562,15 @@
     return { idRetur };
   }
 
-  // ============ RIWAYAT AKTIF (belum diterima gudang) ============
+  // ============ RIWAYAT AKTIF ============
   async function loadRiwayat(unitId) {
     if (!unitId) { rawRowsRiwayat = []; allRowsRiwayat = []; renderRiwayat(); return; }
     $('tableBodyRiwayat').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Memuat...</td></tr>';
     try {
       const { data, error } = await supabaseClient
-        .from('master_data')
-        .select('*')
-        .eq('unit_id', unitId)
+        .from('master_data').select('*').eq('unit_id', unitId)
         .not('status_pengiriman', 'in', '("Diterima Gudang Utama","Dimusnahkan","Dibatalkan")')
-        .order('created_at', { ascending: false })
-        .limit(1000);
+        .order('created_at', { ascending: false }).limit(1000);
       if (error) throw error;
       rawRowsRiwayat = data.map(r => {
         const statusED = getStatusED(r.tgl_ed);
@@ -637,12 +623,9 @@
     $('tableBodyRiwayatDiterima').innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">Memuat...</td></tr>';
     try {
       const { data, error } = await supabaseClient
-        .from('master_data')
-        .select('*')
-        .eq('unit_id', unitId)
+        .from('master_data').select('*').eq('unit_id', unitId)
         .eq('status_pengiriman', 'Diterima Gudang Utama')
-        .order('tgl_diterima', { ascending: false })
-        .limit(1000);
+        .order('tgl_diterima', { ascending: false }).limit(1000);
       if (error) throw error;
       allRowsRiwayatDiterima = data.map(r => ({ ...r, statusED: getStatusED(r.tgl_ed) }));
       currentPageRiwayatDiterima = 1;
@@ -679,7 +662,6 @@
         <td>${r.petugas_penerima||'-'}</td>`;
       tbody.appendChild(tr);
     });
-    // Pagination
     const container = $('paginationRiwayatDiterima');
     const total = allRowsRiwayatDiterima.length;
     const pages = Math.ceil(total / PAGE_SIZE);
@@ -754,6 +736,123 @@
       if (unitId) loadRiwayat(unitId);
     } catch (err) { showAlert('error', err.message); }
   };
+
+  // ============ EXPORT & PRINT RIWAYAT AKTIF (PORTAIT) ============
+  function exportRiwayatAktif() {
+    const rows = allRowsRiwayat;
+    if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data riwayat aktif untuk diekspor.');
+    const unitId = parseInt($('filterUnitRiwayat').value);
+    const unitNama = unitMap[unitId] || '';
+    const header = ['ID Retur', 'Tgl Retur', 'Nama Barang', 'Jml', 'No.Batch', 'Tgl ED', 'Status ED', 'Status Kirim'];
+    const dataRows = rows.map(r => [r.id_retur, formatDate(r.tgl_retur), r.nama_barang, r.jumlah, r.no_batch||'', formatDate(r.tgl_ed), r.statusED, r.status_pengiriman]);
+    const judul = 'Riwayat Aktif Retur — ' + unitNama;
+    const wsData = [[judul], [], header, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:18},{wch:12},{wch:40},{wch:6},{wch:16},{wch:12},{wch:14},{wch:24}];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length-1 } }];
+    ws['!pageSetup'] = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Riwayat Aktif');
+    XLSX.writeFile(wb, 'Riwayat_Aktif_' + unitNama.replace(/\s+/g,'_') + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+  }
+
+  function printRiwayatAktif() {
+    const rows = allRowsRiwayat;
+    if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data riwayat aktif untuk dicetak.');
+    const unitId = parseInt($('filterUnitRiwayat').value);
+    const unitNama = unitMap[unitId] || '';
+    const judul = 'Riwayat Aktif Retur — ' + unitNama;
+    const header = ['ID Retur', 'Tgl Retur', 'Nama Barang', 'Jml', 'No.Batch', 'Tgl ED', 'Status ED', 'Status Kirim'];
+    const rowsHtml = rows.map(r => `<tr>
+      <td>${r.id_retur}</td>
+      <td>${formatDate(r.tgl_retur)}</td>
+      <td>${r.nama_barang}</td>
+      <td style="text-align:center;">${r.jumlah}</td>
+      <td>${r.no_batch||''}</td>
+      <td>${formatDate(r.tgl_ed)}</td>
+      <td>${r.statusED}</td>
+      <td>${r.status_pengiriman}</td>
+    </tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${judul}</title><style>
+      @page { size: portrait; margin: 15mm; }
+      body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
+      h1 { font-size: 15px; text-align: center; margin: 0 0 4px; }
+      p.meta { text-align: center; font-size: 11px; color: #555; margin: 0 0 14px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #999; padding: 5px 6px; font-size: 10.5px; vertical-align: top; }
+      th { background: #2E7D32; color: #fff; text-transform: uppercase; font-size: 9.5px; }
+      tbody tr:nth-child(even) { background: #F5F5F5; }
+    </style></head><body>
+      <h1>${judul}</h1>
+      <p class="meta">Dicetak: ${new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'})} — Total: ${rows.length} data</p>
+      <table><thead><tr>${header.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rowsHtml}</tbody></table>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return showAlert('error', 'Pop-up diblokir browser.');
+    win.document.write(html); win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+    setTimeout(() => { try { win.focus(); win.print(); } catch (e) {} }, 400);
+  }
+
+  // ============ EXPORT & PRINT RIWAYAT SUDAH DITERIMA (PORTAIT) ============
+  function exportRiwayatDiterima() {
+    const rows = allRowsRiwayatDiterima;
+    if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data riwayat diterima untuk diekspor.');
+    const unitId = parseInt($('filterUnitRiwayat').value);
+    const unitNama = unitMap[unitId] || '';
+    const header = ['ID Retur', 'Tgl Retur', 'Nama Barang', 'Jml', 'No.Batch', 'Tgl ED', 'Status ED', 'Tgl Diterima', 'Diterima Oleh'];
+    const dataRows = rows.map(r => [r.id_retur, formatDate(r.tgl_retur), r.nama_barang, r.jumlah, r.no_batch||'', formatDate(r.tgl_ed), r.statusED, formatDate(r.tgl_diterima), r.petugas_penerima||'']);
+    const judul = 'Barang Sudah Diterima Gudang — ' + unitNama;
+    const wsData = [[judul], [], header, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [{wch:18},{wch:12},{wch:40},{wch:6},{wch:16},{wch:12},{wch:14},{wch:12},{wch:30}];
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: header.length-1 } }];
+    ws['!pageSetup'] = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sudah Diterima');
+    XLSX.writeFile(wb, 'Sudah_Diterima_' + unitNama.replace(/\s+/g,'_') + '_' + new Date().toISOString().split('T')[0] + '.xlsx');
+  }
+
+  function printRiwayatDiterima() {
+    const rows = allRowsRiwayatDiterima;
+    if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data riwayat diterima untuk dicetak.');
+    const unitId = parseInt($('filterUnitRiwayat').value);
+    const unitNama = unitMap[unitId] || '';
+    const judul = 'Barang Sudah Diterima Gudang — ' + unitNama;
+    const header = ['ID Retur', 'Tgl Retur', 'Nama Barang', 'Jml', 'No.Batch', 'Tgl ED', 'Status ED', 'Tgl Diterima', 'Diterima Oleh'];
+    const rowsHtml = rows.map(r => `<tr>
+      <td>${r.id_retur}</td>
+      <td>${formatDate(r.tgl_retur)}</td>
+      <td>${r.nama_barang}</td>
+      <td style="text-align:center;">${r.jumlah}</td>
+      <td>${r.no_batch||''}</td>
+      <td>${formatDate(r.tgl_ed)}</td>
+      <td>${r.statusED}</td>
+      <td>${formatDate(r.tgl_diterima)}</td>
+      <td>${r.petugas_penerima||''}</td>
+    </tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${judul}</title><style>
+      @page { size: portrait; margin: 15mm; }
+      body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color:#111; }
+      h1 { font-size: 15px; text-align: center; margin: 0 0 4px; }
+      p.meta { text-align: center; font-size: 11px; color: #555; margin: 0 0 14px; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { border: 1px solid #999; padding: 5px 6px; font-size: 10.5px; vertical-align: top; }
+      th { background: #2E7D32; color: #fff; text-transform: uppercase; font-size: 9.5px; }
+      tbody tr:nth-child(even) { background: #F5F5F5; }
+    </style></head><body>
+      <h1>${judul}</h1>
+      <p class="meta">Dicetak: ${new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'})} — Total: ${rows.length} data</p>
+      <table><thead><tr>${header.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${rowsHtml}</tbody></table>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return showAlert('error', 'Pop-up diblokir browser.');
+    win.document.write(html); win.document.close();
+    win.onload = () => { win.focus(); win.print(); };
+    setTimeout(() => { try { win.focus(); win.print(); } catch (e) {} }, 400);
+  }
 
   // ============ DASHBOARD ============
   let isDashboardUnlocked = false;
@@ -860,7 +959,6 @@
     $('btnPrintMain').addEventListener('click', () => printPreview(allRowsMain, 'Laporan Retur Masuk'));
     $('btnPrintExpired').addEventListener('click', () => printPreview(allRowsExpired, 'Laporan Expired Diterima'));
     $('btnPrintArsip').addEventListener('click', () => printPreview(allRowsArsip, 'Laporan Arsip'));
-    // Kelola Barang
     $('btnTambahBarang').addEventListener('click', tambahBarangHandler);
     $('btnRefreshBarang').addEventListener('click', loadBarangManagement);
     $('btnCetakBarang').addEventListener('click', () => exportToExcelBarang(allRowsBarang));
@@ -1102,21 +1200,12 @@
       let from = 0;
       let hasMore = true;
       while (hasMore) {
-        let query = supabaseClient
-          .from('data_barang')
-          .select('kode_barang, nama_barang, harga_satuan')
-          .order('nama_barang', { ascending: true })
-          .range(from, from + BATCH_SIZE - 1);
+        let query = supabaseClient.from('data_barang').select('kode_barang, nama_barang, harga_satuan').order('nama_barang', { ascending: true }).range(from, from + BATCH_SIZE - 1);
         if (q) query = query.or(`nama_barang.ilike.%${q}%,kode_barang.ilike.%${q}%`);
         const { data, error } = await query;
         if (error) throw error;
-        if (!data || data.length === 0) {
-          hasMore = false;
-        } else {
-          allData.push(...data);
-          from += BATCH_SIZE;
-          if (data.length < BATCH_SIZE) hasMore = false;
-        }
+        if (!data || data.length === 0) { hasMore = false; }
+        else { allData.push(...data); from += BATCH_SIZE; if (data.length < BATCH_SIZE) hasMore = false; }
         if (from > 20000) hasMore = false;
       }
       allRowsBarang = allData;
@@ -1136,10 +1225,7 @@
     const start = (currentPageBarang - 1) * PAGE_SIZE;
     rows.slice(start, start + PAGE_SIZE).forEach(b => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${b.kode_barang}</td>
-        <td>${b.nama_barang}</td>
-        <td>${formatRupiah(b.harga_satuan)}</td>
+      tr.innerHTML = `<td>${b.kode_barang}</td><td>${b.nama_barang}</td><td>${formatRupiah(b.harga_satuan)}</td>
         <td>
           <button class="btn btn-sm" style="margin-right:4px;" onclick="openEditBarangModal('${b.kode_barang}')">✏️ Edit</button>
           <button class="btn btn-sm" style="background:#B91C1C;" onclick="hapusBarangHandler('${b.kode_barang}','${(b.nama_barang||'').replace(/'/g, "\\'")}')">🗑️ Hapus</button>
@@ -1169,8 +1255,7 @@
     const btn = $('btnTambahBarang');
     btn.disabled = true; btn.textContent = 'Memeriksa...';
     try {
-      const { data: existing, error: checkError } = await supabaseClient
-        .from('data_barang').select('kode_barang, nama_barang').eq('kode_barang', kode).maybeSingle();
+      const { data: existing, error: checkError } = await supabaseClient.from('data_barang').select('kode_barang, nama_barang').eq('kode_barang', kode).maybeSingle();
       if (checkError) throw checkError;
       if (existing) {
         btn.disabled = false; btn.textContent = 'Tambah Barang';
@@ -1241,12 +1326,13 @@
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [{wch:15},{wch:50},{wch:15}];
     ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+    ws['!pageSetup'] = { orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 };
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Data Barang');
     XLSX.writeFile(wb, 'Master_Data_Barang_' + new Date().toISOString().split('T')[0] + '.xlsx');
   }
 
-  // ============ EXPORT EXCEL & PRINT ============
+  // ============ EXPORT EXCEL & PRINT DASHBOARD ============
   function exportToExcel(rows, judul, namaFile) {
     if (!rows || rows.length === 0) return showAlert('error', 'Tidak ada data untuk diekspor.', true);
     const header = ['ID Retur', 'Tgl Retur', 'Unit', 'Barang', 'Jml', 'Batch', 'Tgl ED', 'Status ED', 'Nilai'];
@@ -1308,11 +1394,10 @@
       await loadStaff();
       $('tglRetur').valueAsDate = new Date();
 
-      // Event listener unit: load kedua tab
+      // Event listener unit
       $('filterUnitRiwayat').addEventListener('change', function() {
         const unitId = parseInt(this.value);
         loadRiwayat(unitId);
-        // Kalau tab diterima sedang aktif, langsung muat juga
         if ($('riwayatDiterimaPanel').style.display !== 'none') {
           loadRiwayatDiterima(unitId);
         }
@@ -1326,6 +1411,8 @@
         $('riwayatDiterimaPanel').style.display = 'none';
         $('paginationRiwayat').style.display = 'flex';
         $('paginationRiwayatDiterima').style.display = 'none';
+        $('toolbarRiwayatAktif').style.display = 'flex';
+        $('toolbarRiwayatDiterima').style.display = 'none';
       });
 
       $('tabRiwayatDiterima').addEventListener('click', function() {
@@ -1335,6 +1422,8 @@
         $('riwayatDiterimaPanel').style.display = 'block';
         $('paginationRiwayat').style.display = 'none';
         $('paginationRiwayatDiterima').style.display = 'flex';
+        $('toolbarRiwayatAktif').style.display = 'none';
+        $('toolbarRiwayatDiterima').style.display = 'flex';
         const unitId = parseInt($('filterUnitRiwayat').value);
         if (unitId) loadRiwayatDiterima(unitId);
       });
@@ -1342,6 +1431,14 @@
       // Search & sort (hanya untuk tab aktif)
       $('searchRiwayat').addEventListener('input', applyRiwayatSort);
       $('sortRiwayat').addEventListener('change', applyRiwayatSort);
+
+      // Tombol Excel & Cetak Riwayat Aktif
+      $('btnCetakRiwayatAktif').addEventListener('click', exportRiwayatAktif);
+      $('btnPrintRiwayatAktif').addEventListener('click', printRiwayatAktif);
+
+      // Tombol Excel & Cetak Sudah Diterima
+      $('btnCetakRiwayatDiterima').addEventListener('click', exportRiwayatDiterima);
+      $('btnPrintRiwayatDiterima').addEventListener('click', printRiwayatDiterima);
     } catch (err) {
       showAlert('error', 'Gagal inisialisasi: ' + err.message);
     }
