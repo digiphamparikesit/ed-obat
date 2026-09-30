@@ -1,3 +1,349 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Laporan Obat/BMHP Expired — Farmasi RSUD</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/config.js"></script>
+  <style>
+    .dashboard-wrap { display: flex; min-height: calc(100vh - 60px); gap: 0; background: var(--bg); }
+    .sidebar { width: 260px; flex-shrink: 0; background: var(--white); border-right: 1px solid var(--border); padding: 20px 0 20px 12px; position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+    .sidebar .brand { padding: 0 16px 20px 16px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+    .sidebar .brand .logo { display: flex; align-items: center; gap: 10px; }
+    .sidebar .brand .logo .cross { width: 32px; height: 32px; border-radius: 8px; background: var(--green-700); position: relative; flex-shrink: 0; }
+    .sidebar .brand .logo .cross::before, .sidebar .brand .logo .cross::after { content: ''; position: absolute; background: var(--white); border-radius: 2px; }
+    .sidebar .brand .logo .cross::before { width: 14px; height: 3px; top: 14.5px; left: 9px; }
+    .sidebar .brand .logo .cross::after { width: 3px; height: 14px; top: 9px; left: 14.5px; }
+    .sidebar .brand h2 { font-size: 15px; font-weight: 700; color: var(--green-900); margin: 0; }
+    .sidebar .brand p { font-size: 11px; color: var(--muted); margin: 0; }
+    .sidebar-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--muted); background: transparent; border: none; width: 100%; text-align: left; cursor: pointer; transition: background .15s, color .15s; font-family: 'Inter', sans-serif; }
+    .sidebar-item:hover { background: var(--green-100); color: var(--green-900); }
+    .sidebar-item.active { background: var(--green-700); color: var(--white); }
+    .sidebar-item .icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+    .sidebar .nav-bottom { margin-top: auto; padding: 16px 16px 0; border-top: 1px solid var(--border); }
+    .sidebar .nav-bottom a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--muted); text-decoration: none; transition: background .15s; }
+    .sidebar .nav-bottom a:hover { background: var(--green-100); color: var(--green-900); }
+    .main-content { flex: 1; padding: 20px 28px 40px; min-width: 0; overflow-x: auto; }
+    .main-content .stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(11, 74, 42, 0.35); z-index: 50; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal-overlay .card { max-width: 380px; width: 100%; margin: 0; }
+    @media (max-width: 860px) { .dashboard-wrap { flex-direction: column; } .sidebar { width: 100%; height: auto; position: relative; padding: 16px; border-right: none; border-bottom: 1px solid var(--border); flex-direction: row; flex-wrap: wrap; gap: 4px; } .sidebar .brand { display: none; } .sidebar-item { width: auto; padding: 8px 14px; font-size: 12.5px; } .sidebar .nav-bottom { display: none; } .main-content { padding: 16px; } }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div class="header-sticky">
+    <div class="topbar">
+      <div class="cross"></div>
+      <div class="titles">
+        <h1>Laporan Obat/BMHP Expired</h1>
+        <p>Instalasi Farmasi RSUD</p>
+      </div>
+      <button id="btnTutorial" class="btn-tutorial">Tutorial Aplikasi</button>
+      <div class="nav-pill">
+        <a class="active" href="#" id="navInput">Input Retur</a>
+        <a href="#" id="navDashboard">Dashboard Gudang</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="alertBox" class="alert"></div>
+
+  <div id="tabInput">
+    <div class="two-col">
+      <div class="card form-sticky-card">
+        <h2>Form Retur Barang Expired</h2>
+        <p class="sub">Isi data barang yang berstatus expired / near ED untuk dikirim ke Gudang Farmasi Utama.</p>
+        <form id="returForm">
+          <div class="field">
+            <label>Nama Petugas</label>
+            <input type="text" id="searchNama" placeholder="Ketik nama Anda..." autocomplete="off">
+            <div id="listNama" class="autocomplete-list"></div>
+            <input type="hidden" id="namaPetugas">
+          </div>
+          <div class="field">
+            <label>Unit / Gudang Asal</label>
+            <input type="text" id="unitAsal" disabled placeholder="Terisi otomatis">
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Tgl Retur</label><input type="date" id="tglRetur"></div>
+            <div class="field"><label>Tgl ED</label><input type="date" id="tglED"></div>
+          </div>
+          <div id="statusEDPreview" class="hint" style="margin:-8px 0 16px;"></div>
+          <div class="field">
+            <label>Nama Barang</label>
+            <input type="text" id="searchBarang" placeholder="Ketik nama barang..." autocomplete="off">
+            <div id="listBarang" class="autocomplete-list"></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>ID Barang</label><input type="text" id="idBarang" disabled></div>
+            <div class="field"><label>Harga Satuan</label><input type="text" id="hargaSatuanDisplay" disabled><input type="hidden" id="hargaSatuan"></div>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Jumlah</label><input type="number" id="jumlah" min="1" placeholder="0"></div>
+            <div class="field"><label>No. Batch</label><input type="text" id="noBatch" placeholder="B-2024-001"></div>
+          </div>
+          <div class="field">
+            <label>Status Barang</label>
+            <select id="statusBarang">
+              <option value="">-- Pilih Status --</option>
+              <option value="FAST MOVING">FAST MOVING</option>
+              <option value="SLOW MOVING">SLOW MOVING</option>
+              <option value="DEATH STOCK">DEATH STOCK</option>
+            </select>
+          </div>
+          <button type="submit" class="btn" id="btnSubmit">Kirim Laporan Retur</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="riwayat-header-fixed">
+          <h2>Riwayat Retur & Edit Jumlah</h2>
+          <p class="sub">Pilih unit untuk melihat laporan. Jumlah bisa diedit selama status <strong>Draft</strong> atau <strong>Menunggu Dikirim</strong>.</p>
+          <div class="field" style="max-width:320px;">
+            <label>Pilih Gudang/Unit</label>
+            <select id="filterUnitRiwayat"><option value="">-- Pilih --</option></select>
+          </div>
+          <div class="row-2">
+            <div class="field"><label>Cari</label><input type="text" id="searchRiwayat" placeholder="Cari nama barang, ID retur..." autocomplete="off"></div>
+            <div class="field">
+              <label>Urutkan</label>
+              <select id="sortRiwayat">
+                <option value="tgl_retur_terbaru">Tgl Retur Terbaru</option>
+                <option value="tgl_retur_terlama">Tgl Retur Terlama</option>
+                <option value="nama_az">Nama A-Z</option>
+                <option value="nama_za">Nama Z-A</option>
+                <option value="ed_terdekat">ED Terdekat</option>
+                <option value="ed_terjauh">ED Terjauh</option>
+                <option value="jumlah_terbesar">Jumlah Terbesar</option>
+                <option value="jumlah_terkecil">Jumlah Terkecil</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="riwayat-scroll-body">
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Nama Barang</th><th>Jml</th><th>No.Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Kirim</th><th>Aksi</th></tr></thead>
+              <tbody id="tableBodyRiwayat"></tbody>
+            </table>
+            <div id="emptyStateRiwayat" class="empty-state" style="display:none;"><div class="icon">📋</div><div>Belum pilih unit atau belum ada data.</div></div>
+          </div>
+        </div>
+        <div id="paginationRiwayat" class="pagination"></div>
+      </div>
+    </div>
+  </div>
+    <div id="tabDashboard" style="display:none;">
+    <div id="passwordGate" style="min-height:60vh; display:flex; align-items:center; justify-content:center; padding:20px;">
+      <div class="card" style="max-width:380px; width:100%; margin:0;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:18px;">
+          <div class="cross"></div>
+          <div><h2 style="margin:0;">Dashboard Gudang Farmasi</h2><p class="sub" style="margin:2px 0 0;">Khusus petugas Gudang Farmasi Utama</p></div>
+        </div>
+        <div id="passwordError" class="alert alert-error"></div>
+        <div class="field"><label>Kata Sandi</label><input type="password" id="dashboardPassword" placeholder="Masukkan kata sandi..."></div>
+        <button class="btn" id="btnMasukDashboard">Masuk</button>
+      </div>
+    </div>
+
+    <div id="dashboardContent" style="display:none;">
+      <div style="background:var(--bg); padding:12px 28px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="cross" style="width:28px;height:28px;border-radius:6px;"></div>
+          <span style="font-weight:700;color:var(--green-900);font-size:14px;">Gudang Farmasi Utama</span>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <a href="#" id="navDashboardBack" style="text-decoration:none;font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:999px;background:var(--white);border:1px solid var(--border);">← Input Retur</a>
+          <span style="font-size:12.5px;font-weight:600;color:var(--white);padding:6px 14px;border-radius:999px;background:var(--green-700);">Dashboard</span>
+        </div>
+      </div>
+
+      <div class="dashboard-wrap">
+        <div class="sidebar">
+          <div class="brand"><div class="logo"><div class="cross"></div><div><h2>Dashboard</h2><p>Gudang Farmasi</p></div></div></div>
+          <button class="sidebar-item active" data-tab="monitoring"><span class="icon">📊</span> Monitoring Semua Barang</button>
+          <button class="sidebar-item" data-tab="retur"><span class="icon">📦</span> Data Retur Masuk</button>
+          <button class="sidebar-item" data-tab="expired"><span class="icon">⚠️</span> Laporan Expired Diterima</button>
+          <button class="sidebar-item" data-tab="arsip"><span class="icon">🗄️</span> Arsip Riwayat Lama</button>
+          <button class="sidebar-item" data-tab="barang"><span class="icon">📋</span> Kelola Data Barang</button>
+          <div class="nav-bottom"><a href="#" id="navDashboardBack2">← Kembali ke Input Retur</a></div>
+        </div>
+
+        <div class="main-content" id="dashboardMainContent">
+          <div id="alertBoxDash" class="alert"></div>
+
+          <div class="stat-strip" id="statStrip">
+            <div class="stat-box"><div class="num" id="statMenunggu">-</div><div class="lbl">Menunggu Diterima</div></div>
+            <div class="stat-box"><div class="num" id="statDiterima">-</div><div class="lbl">Sudah Diterima</div></div>
+            <div class="stat-box"><div class="num" id="statTotal">-</div><div class="lbl">Total Laporan</div></div>
+            <div class="stat-box" style="border-color:var(--danger);"><div class="num" id="statNilaiExpired" style="color:var(--danger);">-</div><div class="lbl">Total Nilai Expired</div></div>
+            <div class="stat-box" style="border-color:var(--warn3);"><div class="num" id="statNilaiNear3" style="color:var(--warn3);">-</div><div class="lbl">Total Nilai NEAR ED3</div></div>
+            <div class="stat-box" style="border-color:var(--warn6);"><div class="num" id="statNilaiNear6" style="color:#B8860B;">-</div><div class="lbl">Total Nilai NEAR ED6</div></div>
+          </div>
+
+          <!-- Panel Monitoring -->
+          <div class="tab-panel" id="tab-monitoring">
+            <h2>Monitoring Semua Barang</h2>
+            <p class="sub">Semua barang yang belum diterima gudang (termasuk Draft). Untuk pantauan dini.</p>
+            <div class="filters">
+              <select id="filterUnitMonitoring"><option value="SEMUA">Semua Unit</option></select>
+              <select id="filterStatusEDMonitoring"><option value="SEMUA">Semua Status ED</option><option value="AMAN">AMAN</option><option value="NEAR ED6">NEAR ED6</option><option value="NEAR ED3">NEAR ED3</option><option value="EXPIRED DATE">EXPIRED DATE</option></select>
+              <select id="filterStatusBarangMonitoring"><option value="SEMUA">Semua Status Barang</option><option value="FAST MOVING">FAST MOVING</option><option value="SLOW MOVING">SLOW MOVING</option><option value="DEATH STOCK">DEATH STOCK</option></select>
+              <input type="text" id="filterNamaBarangMonitoring" placeholder="Cari nama barang...">
+              <input type="date" id="filterStartMonitoring"><input type="date" id="filterEndMonitoring">
+              <button class="btn btn-sm" id="btnLoadMonitoring" style="width:auto;">Cari</button>
+              <button class="btn btn-sm" id="btnCetakMonitoring" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintMonitoring" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Barang</th><th>Petugas</th><th>Status Kirim</th><th>Nilai</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="11" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiMonitoring">-</td></tr></tfoot><tbody id="tableBodyMonitoring"></tbody></table><div id="emptyStateMonitoring" class="empty-state" style="display:none;"><div class="icon">🔍</div><div>Tidak ada data.</div></div></div>
+            <div id="paginationMonitoring" class="pagination"></div>
+          </div>
+
+          <!-- Panel Retur Masuk -->
+          <div class="tab-panel" id="tab-retur" style="display:none;">
+            <h2>Data Retur Masuk dari Seluruh Unit</h2>
+            <p class="sub">Tandai "Diterima" setelah barang fisik sampai di Gudang.</p>
+            <div class="filters">
+              <select id="filterUnit"><option value="SEMUA">Semua Unit</option></select>
+              <select id="filterStatus"><option value="Menunggu Dikirim ke Gudang Utama">Menunggu</option><option value="Diterima Gudang Utama">Diterima</option><option value="SEMUA">Semua</option></select>
+              <input type="date" id="filterStart"><input type="date" id="filterEnd">
+              <button class="btn btn-sm" id="btnRefresh" style="width:auto;">Refresh</button>
+              <button class="btn btn-sm" id="btnResetFilter" style="width:auto;background:#9CB8A9;">Reset</button>
+              <button class="btn btn-sm" id="btnCetakMain" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintMain" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Tgl ED</th><th>Status ED</th><th>Status Barang</th><th>Petugas</th><th>Status Kirim</th><th>Diterima Oleh</th><th>Nilai</th><th>Aksi</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="12" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiMain">-</td><td></td></tr></tfoot><tbody id="tableBody"></tbody></table><div id="emptyState" class="empty-state" style="display:none;"><div class="icon">📦</div><div>Tidak ada data.</div></div></div>
+            <div id="paginationMain" class="pagination"></div>
+          </div>
+
+          <!-- Panel Expired Diterima -->
+          <div class="tab-panel" id="tab-expired" style="display:none;">
+            <h2>Laporan Barang Expired yang Sudah Diterima</h2>
+            <p class="sub">Barang yang sudah diterima Gudang dan status ED = EXPIRED DATE. Klik <strong>🗑️ Musnahkan</strong> untuk menandai barang sudah dimusnahkan.</p>
+            <div class="filters">
+              <select id="filterUnitExpired"><option value="SEMUA">Semua Unit</option></select>
+              <select id="filterStatusEDExpired"><option value="EXPIRED DATE">Sudah Expired</option><option value="NEAR ED3">NEAR ED3</option><option value="NEAR ED6">NEAR ED6</option><option value="SEMUA">Semua</option></select>
+              <input type="date" id="filterStartExpired"><input type="date" id="filterEndExpired">
+              <button class="btn btn-sm" id="btnLoadExpired" style="width:auto;">Cari</button>
+              <button class="btn btn-sm" id="btnCetakExpired" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintExpired" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="stat-box" style="border-color:var(--danger);max-width:280px;margin-bottom:16px;"><div class="num" id="statTotalNilaiExpiredDiterima" style="color:var(--danger);">-</div><div class="lbl">Total Nilai Kerugian</div></div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Tgl ED</th><th>Status ED</th><th>Petugas</th><th>Diterima Oleh</th><th>Tgl Diterima</th><th>Nilai</th><th>Aksi</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="11" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiExpiredFooter">-</td><td></td></tr></tfoot><tbody id="tableBodyExpired"></tbody></table><div id="emptyStateExpired" class="empty-state" style="display:none;"><div class="icon">⚠️</div><div>Belum ada data.</div></div></div>
+            <div id="paginationExpired" class="pagination"></div>
+          </div>
+
+          <!-- Panel Arsip -->
+          <div class="tab-panel" id="tab-arsip" style="display:none;">
+            <h2>Arsip Riwayat Lama</h2>
+            <p class="sub">Data yang sudah diterima &gt; 90 hari, dipindah ke sini.</p>
+            <div class="filters">
+              <select id="filterUnitArsip"><option value="SEMUA">Semua Unit</option></select>
+              <input type="date" id="filterStartArsip"><input type="date" id="filterEndArsip">
+              <button class="btn btn-sm" id="btnLoadArsip" style="width:auto;">Cari</button>
+              <button class="btn btn-sm" id="btnCetakArsip" style="width:auto;background:#1D6F42;">📊 Excel</button>
+              <button class="btn btn-sm" id="btnPrintArsip" style="width:auto;background:var(--green-700);">🖨️ Cetak</button>
+            </div>
+            <div class="table-scroll"><table><thead><tr><th>ID Retur</th><th>Tgl Retur</th><th>Unit</th><th>Barang</th><th>Jml</th><th>Batch</th><th>Nilai</th><th>Diterima Oleh</th><th>Tgl Diterima</th></tr></thead><tfoot><tr style="font-weight:700;background:var(--green-100);"><td colspan="6" style="text-align:right;">TOTAL NILAI</td><td id="totalNilaiArsip">-</td><td></td><td></td></tr></tfoot><tbody id="tableBodyArsip"></tbody></table><div id="emptyStateArsip" class="empty-state" style="display:none;"><div class="icon">🗄️</div><div>Belum ada data.</div></div></div>
+            <div id="paginationArsip" class="pagination"></div>
+          </div>
+
+          <!-- Panel Kelola Data Barang -->
+          <div class="tab-panel" id="tab-barang" style="display:none;">
+            <h2>Kelola Data Barang</h2>
+            <p class="sub">Tambah, edit, atau hapus master data barang (obat/BMHP). Menu ini khusus Gudang Farmasi.</p>
+
+            <div class="card" style="margin-bottom:20px; background:var(--green-100); border:1px solid var(--green-500);">
+              <h3 style="margin:0 0 12px; color:var(--green-900); font-size:14px;">➕ Tambah Barang Baru</h3>
+              <div class="row-2">
+                <div class="field"><label>Kode Barang</label><input type="text" id="newKodeBarang" placeholder="Contoh: 1234" autocomplete="off"></div>
+                <div class="field"><label>Nama Barang</label><input type="text" id="newNamaBarang" placeholder="Contoh: PARACETAMOL TAB 500MG" autocomplete="off"></div>
+              </div>
+              <div class="row-2">
+                <div class="field"><label>Harga Satuan (Rp)</label><input type="number" id="newHargaSatuan" placeholder="0" min="0"></div>
+                <div class="field" style="display:flex; align-items:flex-end;">
+                  <button class="btn" id="btnTambahBarang" style="width:100%;">Tambah Barang</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="filters">
+              <input type="text" id="filterNamaBarangKelola" placeholder="Cari nama atau kode barang..." style="min-width:300px;" autocomplete="off">
+              <button class="btn btn-sm" id="btnRefreshBarang" style="width:auto;">Refresh</button>
+              <button class="btn btn-sm" id="btnCetakBarang" style="width:auto;background:#1D6F42;">📊 Excel</button>
+            </div>
+
+            <div class="table-scroll">
+              <table>
+                <thead><tr><th>Kode Barang</th><th>Nama Barang</th><th>Harga Satuan</th><th>Aksi</th></tr></thead>
+                <tbody id="tableBodyBarang"></tbody>
+              </table>
+              <div id="emptyStateBarang" class="empty-state" style="display:none;"><div class="icon">📋</div><div>Belum ada data barang.</div></div>
+            </div>
+            <div id="paginationBarang" class="pagination"></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL EDIT JUMLAH -->
+<div id="modalEditOverlay" class="modal-overlay">
+  <div class="card">
+    <h2>Edit Jumlah</h2>
+    <p class="sub">ID Retur: <strong id="editIdRetur"></strong><br>Barang: <span id="editNamaBarang"></span></p>
+    <div class="field"><label>Jumlah Baru</label><input type="number" id="editJumlahBaru" min="1"></div>
+    <div style="display:flex; gap:10px;"><button class="btn" id="btnBatalEdit" style="background:#9CB8A9;">Batal</button><button class="btn" id="btnSimpanEdit">Simpan</button></div>
+  </div>
+</div>
+
+<!-- MODAL KONFIRMASI PENERIMAAN -->
+<div id="modalTerimaOverlay" class="modal-overlay">
+  <div class="card">
+    <h2>Konfirmasi Penerimaan</h2>
+    <p class="sub">ID Retur: <strong id="modalIdRetur"></strong></p>
+    <div class="field"><label>Nama Petugas Gudang</label><input type="text" id="searchNamaGudang" placeholder="Ketik nama..."><div id="listNamaGudang" class="autocomplete-list"></div><input type="hidden" id="namaPetugasGudang"></div>
+    <div style="display:flex; gap:10px;"><button class="btn" id="btnBatalTerima" style="background:#9CB8A9;">Batal</button><button class="btn" id="btnKonfirmasi">Tandai Diterima</button></div>
+  </div>
+</div>
+
+<!-- MODAL EDIT BARANG -->
+<div id="modalEditBarangOverlay" class="modal-overlay">
+  <div class="card">
+    <h2>Edit Data Barang</h2>
+    <p class="sub">Kode Barang: <strong id="editKodeBarangLabel"></strong></p>
+    <div class="field"><label>Nama Barang</label><input type="text" id="editNamaBarangKelola"></div>
+    <div class="field"><label>Harga Satuan (Rp)</label><input type="number" id="editHargaSatuanKelola" min="0"></div>
+    <div style="display:flex; gap:10px;">
+      <button class="btn" id="btnBatalEditBarang" style="background:#9CB8A9;">Batal</button>
+      <button class="btn" id="btnSimpanEditBarang">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TUTORIAL -->
+<div id="modalTutorialOverlay" class="modal-overlay">
+  <div class="card" style="max-width:720px;max-height:85vh;overflow-y:auto;">
+    <h2>📘 Tutorial Aplikasi</h2>
+    <p class="sub">Panduan singkat untuk staff unit & gudang.</p>
+    <h3>1️⃣ Input Laporan Retur</h3>
+    <ol><li>Ketik nama Anda, pilih dari saran.</li><li>Isi tanggal retur dan ED.</li><li>Ketik nama barang, pilih dari saran.</li><li>Isi jumlah dan no batch.</li><li>Pilih status barang.</li><li>Klik Kirim.</li></ol>
+    <h3>2️⃣ Alur Status</h3>
+    <p>Draft → Menunggu Dikirim → Diterima Gudang → Dimusnahkan / Dibatalkan.</p>
+    <h3>3️⃣ Dashboard Gudang</h3>
+    <p>Login dengan password untuk melihat monitoring, retur masuk, laporan expired, arsip, dan kelola data barang.</p>
+    <h3>4️⃣ Kelola Data Barang</h3>
+    <p>Menu ini khusus Gudang Farmasi untuk menambahkan barang baru, mengedit nama/harga, atau menghapus barang yang belum pernah dipakai transaksi.</p>
+    <button class="btn" id="btnTutupTutorial2" style="margin-top:16px;">Tutup</button>
+  </div>
+</div>
 <script>
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
