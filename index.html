@@ -968,57 +968,50 @@
 
   // ============ KELOLA DATA BARANG ============
   async function loadBarangManagement() {
-    $('tableBodyBarang').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Memuat...</td></tr>';
-    try {
-      const { data, error } = await supabaseClient.from('data_barang').select('kode_barang, nama_barang, harga_satuan').order('nama_barang', { ascending: true });
+  $('tableBodyBarang').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Memuat data...</td></tr>';
+  try {
+    const q = ($('filterNamaBarangKelola').value || '').trim();
+    const allData = [];
+    const BATCH_SIZE = 1000;
+    let from = 0;
+    let hasMore = true;
+
+    // Loop fetch sampai semua data terambil
+    while (hasMore) {
+      let query = supabaseClient
+        .from('data_barang')
+        .select('kode_barang, nama_barang, harga_satuan')
+        .order('nama_barang', { ascending: true })
+        .range(from, from + BATCH_SIZE - 1);
+
+      if (q) {
+        query = query.or(`nama_barang.ilike.%${q}%,kode_barang.ilike.%${q}%`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      allRowsBarang = data || [];
-      currentPageBarang = 1;
-      applyFilterBarang();
-    } catch (err) {
-      showAlert('error', 'Gagal memuat data barang: ' + err.message, true);
-      $('tableBodyBarang').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:red;">Error: ' + err.message + '</td></tr>';
-    }
-  }
 
-  function applyFilterBarang() {
-    const q = ($('filterNamaBarangKelola').value || '').trim().toLowerCase();
-    let filtered = allRowsBarang;
-    if (q) filtered = allRowsBarang.filter(b => (b.nama_barang||'').toLowerCase().includes(q) || (b.kode_barang||'').toLowerCase().includes(q));
-    renderPageBarang(filtered);
-  }
+      if (!data || data.length === 0) {
+        hasMore = false;
+      } else {
+        allData.push(...data);
+        from += BATCH_SIZE;
+        if (data.length < BATCH_SIZE) hasMore = false;
+      }
 
-  function renderPageBarang(rows) {
-    const tbody = $('tableBodyBarang'); const empty = $('emptyStateBarang');
-    tbody.innerHTML = '';
-    if (!rows || rows.length === 0) { empty.style.display = 'block'; $('paginationBarang').innerHTML = ''; return; }
-    empty.style.display = 'none';
-    const start = (currentPageBarang - 1) * PAGE_SIZE;
-    rows.slice(start, start + PAGE_SIZE).forEach(b => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${b.kode_barang}</td>
-        <td>${b.nama_barang}</td>
-        <td>${formatRupiah(b.harga_satuan)}</td>
-        <td>
-          <button class="btn btn-sm" style="margin-right:4px;" onclick="openEditBarangModal('${b.kode_barang}')">✏️ Edit</button>
-          <button class="btn btn-sm" style="background:#B91C1C;" onclick="hapusBarangHandler('${b.kode_barang}','${(b.nama_barang||'').replace(/'/g, "\\'")}')">🗑️ Hapus</button>
-        </td>`;
-      tbody.appendChild(tr);
-    });
-    const pages = Math.ceil(rows.length / PAGE_SIZE);
-    const container = $('paginationBarang');
-    container.innerHTML = '';
-    if (pages > 1) {
-      const prev = document.createElement('button'); prev.textContent = '‹ Sebelumnya'; prev.disabled = currentPageBarang === 1;
-      prev.onclick = () => { currentPageBarang--; renderPageBarang(rows); };
-      const info = document.createElement('span'); info.className = 'page-info';
-      info.textContent = `Halaman ${currentPageBarang} dari ${pages} (${rows.length} data)`;
-      const next = document.createElement('button'); next.textContent = 'Berikutnya ›'; next.disabled = currentPageBarang === pages;
-      next.onclick = () => { currentPageBarang++; renderPageBarang(rows); };
-      container.append(prev, info, next);
+      // Safety: batas maksimum 20.000 baris agar tidak infinite loop
+      if (from > 20000) hasMore = false;
     }
+
+    allRowsBarang = allData;
+    currentPageBarang = 1;
+    renderPageBarang(allRowsBarang);
+    console.log('Total barang loaded:', allRowsBarang.length);
+  } catch (err) {
+    showAlert('error', 'Gagal memuat data barang: ' + err.message, true);
+    $('tableBodyBarang').innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:red;">Error: ' + err.message + '</td></tr>';
   }
+}
 
   async function tambahBarangHandler() {
   const kode = $('newKodeBarang').value.trim();
