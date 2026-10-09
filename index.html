@@ -261,6 +261,7 @@
             <div class="filters">
               <select id="filterUnitExpired"><option value="SEMUA">Semua Unit</option></select>
               <select id="filterStatusEDExpired"><option value="EXPIRED DATE">Sudah Expired</option><option value="NEAR ED3">NEAR ED3</option><option value="NEAR ED6">NEAR ED6</option><option value="SEMUA">Semua</option></select>
+              <input type="text" id="filterNamaBarangExpired" placeholder="Cari nama barang..." style="min-width:200px;" autocomplete="off">
               <input type="date" id="filterStartExpired"><input type="date" id="filterEndExpired">
               <button class="btn btn-sm" id="btnLoadExpired" style="width:auto;">Cari</button>
               <button class="btn btn-sm" id="btnCetakExpired" style="width:auto;background:#1D6F42;">📊 Excel</button>
@@ -947,6 +948,12 @@
       loadData();
     });
     $('btnLoadExpired').addEventListener('click', loadExpired);
+    // Filter nama barang expired (debounce 300ms)
+    let filterExpiredTimer = null;
+    $('filterNamaBarangExpired').addEventListener('input', function() {
+     clearTimeout(filterExpiredTimer);
+    filterExpiredTimer = setTimeout(() => { loadExpired(); }, 300);
+   });
     $('btnLoadArsip').addEventListener('click', loadArsip);
     document.querySelectorAll('#navDashboardBack, #navDashboardBack2').forEach(el => {
       el.addEventListener('click', e => { e.preventDefault(); $('navInput').click(); });
@@ -1110,26 +1117,28 @@
   };
 
   async function loadExpired() {
-    const unit = $('filterUnitExpired').value;
-    const statusFilter = $('filterStatusEDExpired').value;
-    const start = $('filterStartExpired').value;
-    const end = $('filterEndExpired').value;
-    $('tableBodyExpired').innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">Memuat...</td></tr>';
-    try {
-      let query = supabaseClient.from('master_data').select('*, unit(nama)').eq('status_pengiriman', 'Diterima Gudang Utama');
-      if (unit && unit !== 'SEMUA') query = query.eq('unit_id', parseInt(unit));
-      if (start) query = query.gte('tgl_diterima', start);
-      if (end) query = query.lte('tgl_diterima', end);
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
-      let rows = data.map(r => ({ ...r, statusED: getStatusED(r.tgl_ed), unitNama: r.unit?.nama || '' }));
-      if (statusFilter && statusFilter !== 'SEMUA') rows = rows.filter(r => r.statusED === statusFilter);
-      allRowsExpired = rows;
-      currentPageExpired = 1;
-      $('statTotalNilaiExpiredDiterima').textContent = formatRupiah(rows.reduce((s,r) => s+(r.nilai||0), 0));
-      renderPageExpired();
-    } catch (err) { showAlert('error', 'Gagal memuat expired: ' + err.message, true); }
-  }
+  const unit = $('filterUnitExpired').value;
+  const statusFilter = $('filterStatusEDExpired').value;
+  const namaBarang = ($('filterNamaBarangExpired').value || '').trim();
+  const start = $('filterStartExpired').value;
+  const end = $('filterEndExpired').value;
+  $('tableBodyExpired').innerHTML = '<tr><td colspan="13" style="text-align:center;padding:20px;">Memuat...</td></tr>';
+  try {
+    let query = supabaseClient.from('master_data').select('*, unit(nama)').eq('status_pengiriman', 'Diterima Gudang Utama');
+    if (unit && unit !== 'SEMUA') query = query.eq('unit_id', parseInt(unit));
+    if (namaBarang) query = query.ilike('nama_barang', '%' + namaBarang + '%');  // <-- FILTER NAMA BARANG
+    if (start) query = query.gte('tgl_diterima', start);
+    if (end) query = query.lte('tgl_diterima', end);
+    const { data, error } = await query.order('created_at', { ascending: false });
+    if (error) throw error;
+    let rows = data.map(r => ({ ...r, statusED: getStatusED(r.tgl_ed), unitNama: r.unit?.nama || '' }));
+    if (statusFilter && statusFilter !== 'SEMUA') rows = rows.filter(r => r.statusED === statusFilter);
+    allRowsExpired = rows;
+    currentPageExpired = 1;
+    $('statTotalNilaiExpiredDiterima').textContent = formatRupiah(rows.reduce((s,r) => s+(r.nilai||0), 0));
+    renderPageExpired();
+  } catch (err) { showAlert('error', 'Gagal memuat expired: ' + err.message, true); }
+}
 
   function renderPageExpired() {
     const tbody = $('tableBodyExpired'); const empty = $('emptyStateExpired');
