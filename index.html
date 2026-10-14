@@ -418,12 +418,27 @@
 <div id="modalEditStaffOverlay" class="modal-overlay">
   <div class="card">
     <h2>Edit Data Staff</h2>
-    <p class="sub">Ubah nama staff saja. Untuk pindah unit, gunakan tombol <strong>🔁 Rolling</strong>.</p>
-    <div class="field"><label>Nama Staff</label><input type="text" id="editNamaStaff"></div>
+    <p class="sub">Ubah <strong>nama staff</strong> saja (untuk perbaiki typo). Untuk pindah unit, gunakan tombol 🔁 Rolling.</p>
+
+    <div class="field">
+      <label>Unit / Gudang Saat Ini</label>
+      <input type="text" id="editUnitStaffSaatIni" disabled style="background:#E3F5EA; color:#0B4A2A; font-weight:600;">
+    </div>
+
+    <div class="field">
+      <label>Nama Staff</label>
+      <input type="text" id="editNamaStaff">
+    </div>
+
+    <div style="background:#FFF3E0; border:1px solid #F9A825; padding:10px; border-radius:8px; margin-bottom:14px; font-size:12.5px;">
+      ℹ️ Mau pindah unit? Klik tombol <strong>🔁 Rolling</strong> di bawah ini.
+    </div>
+
     <div style="display:flex; gap:10px;">
       <button class="btn" id="btnBatalEditStaff" style="background:#9CB8A9;">Batal</button>
-      <button class="btn" id="btnSimpanEditStaff">Simpan</button>
+      <button class="btn" id="btnSimpanEditStaff">Simpan Nama</button>
     </div>
+    <button class="btn" id="btnRollingDariEdit" style="margin-top:10px; background:#F57C00;">🔁 Rolling (Pindah Unit)</button>
   </div>
 </div>
 
@@ -1030,6 +1045,17 @@
     $('btnCetakStaff').addEventListener('click', () => exportToExcelStaff(allRowsStaff));
     $('btnBatalEditStaff').onclick = () => $('modalEditStaffOverlay').classList.remove('show');
     $('btnSimpanEditStaff').onclick = simpanEditStaffHandler;
+    // Tombol Rolling dari dalam modal Edit
+    $('btnRollingDariEdit').onclick = function() {
+    // Tutup modal Edit dulu
+    $('modalEditStaffOverlay').classList.remove('show');
+    // Buka modal Rolling dengan data yang sama
+    if (currentRollingStaffRow && currentRollingStaffRow.unit_id) {
+    openRollingModal(currentRollingStaffRow.id, currentRollingStaffRow.nama, currentRollingStaffRow.unit_id);
+  } else {
+    showAlert('error', 'Data staff tidak valid. Refresh halaman dan coba lagi.', true);
+  }
+};
     $('btnBatalRolling').onclick = () => $('modalRollingOverlay').classList.remove('show');
     $('btnSimpanRolling').onclick = simpanRollingHandler;
     let filterStaffTimer = null;
@@ -1531,10 +1557,16 @@
   }
 
   window.openEditStaffModal = function(id, nama) {
-    currentEditStaffId = id;
-    $('editNamaStaff').value = nama;
-    $('modalEditStaffOverlay').classList.add('show');
-  };
+  currentEditStaffId = id;
+  // Cari data staff untuk ambil unit_id
+  const staffRow = allRowsStaff.find(x => x.id === id);
+  const unitId = staffRow ? staffRow.unit_id : null;
+  currentRollingStaffRow = { nama: nama, unit_id: unitId, id: id };
+
+  $('editNamaStaff').value = nama;
+  $('editUnitStaffSaatIni').value = unitId ? (unitMap[unitId] || 'Tidak diketahui') : '-';
+  $('modalEditStaffOverlay').classList.add('show');
+};
 
   async function simpanEditStaffHandler() {
     const nama = $('editNamaStaff').value.trim();
